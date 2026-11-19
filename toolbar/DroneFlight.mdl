@@ -6,7 +6,7 @@ Model {
   Solver "ode4"
   FixedStep "drone.step_s"
   StopTime "drone.mission(end,1)"
-  PreLoadFcn "FlightParameters;"
+  PostLoadFcn "addpath(fileparts(get_param('DroneFlight','FileName')),'-begin'); FlightParameters;"
   InitFcn "FlightParameters;"
   StartFcn "evalin('base','clear motor1_flight_replay');"
   ReturnWorkspaceOutputs off
@@ -21,12 +21,14 @@ Model {
     Block {
       BlockType SubSystem
       Name "Flight command"
-      Position [20, 90, 153, 154]
+      Ports [0, 1]
+      Position [20, 85, 180, 145]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType FromWorkspace
           Name "Forward speed command"
+          Ports [0, 1]
           Position [25, 28, 180, 62]
           VariableName "forward_command"
           Interpolate "off"
@@ -36,6 +38,7 @@ Model {
         Block {
           BlockType FromWorkspace
           Name "Right climb height and yaw"
+          Ports [0, 1]
           Position [25, 130, 180, 164]
           VariableName "mission_commands"
           Interpolate "off"
@@ -45,12 +48,14 @@ Model {
         Block {
           BlockType Mux
           Name "Collect commands"
+          Ports [2, 1]
           Position [240, 30, 250, 155]
           Inputs "2"
         }
         Block {
           BlockType Outport
           Name "commands"
+          Ports [1, 0]
           Position [340, 80, 380, 100]
           Port "1"
         }
@@ -78,148 +83,173 @@ Model {
     Block {
       BlockType SubSystem
       Name "Flight controller"
-      Position [212, 90, 337, 154]
+      Ports [2, 1]
+      Position [320, 100, 530, 160]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType Inport
           Name "Commands"
+          Ports [0, 1]
           Position [30, 48, 70, 68]
           Port "1"
         }
         Block {
           BlockType Inport
           Name "Measured state"
+          Ports [0, 1]
           Position [30, 372, 70, 392]
           Port "2"
         }
         Block {
           BlockType Demux
           Name "Movement references"
+          Ports [1, 4]
           Position [230, 40, 239, 136]
           Outputs "[2 1 1 1]"
         }
         Block {
           BlockType Demux
           Name "Feedback channels"
+          Ports [1, 8]
           Position [230, 364, 239, 556]
           Outputs "[2 1 2 1 2 1 3 4]"
         }
         Block {
           BlockType Terminator
           Name "Feedback channels unused 1"
+          Ports [1, 0]
           Position [298, 370, 310, 382]
         }
         Block {
           BlockType Terminator
           Name "Feedback channels unused 8"
+          Ports [1, 0]
           Position [298, 538, 310, 550]
         }
         Block {
           BlockType SubSystem
           Name "Horizontal velocity"
+          Ports [3, 1]
           Position [630, 40, 775, 88]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Forward and right demand"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "North and east velocity"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "2"
             }
             Block {
               BlockType Inport
               Name "Heading"
+              Ports [0, 1]
               Position [30, 372, 70, 392]
               Port "3"
             }
             Block {
               BlockType SubSystem
               Name "Rotate velocity into body"
+              Ports [2, 1]
               Position [230, 256, 375, 300]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Planar components"
+                  Ports [0, 1]
                   Position [30, 156, 70, 176]
                   Port "1"
                 }
                 Block {
                   BlockType Demux
                   Name "Components"
+                  Ports [1, 2]
                   Position [230, 148, 239, 196]
                   Outputs "[1 1]"
                 }
                 Block {
                   BlockType Inport
                   Name "Yaw"
+                  Ports [0, 1]
                   Position [30, 372, 70, 392]
                   Port "2"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Cosine"
+                  Ports [1, 1]
                   Position [230, 364, 365, 402]
                   Operator "cos"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Sine"
+                  Ports [1, 1]
                   Position [230, 472, 365, 510]
                   Operator "sin"
                 }
                 Block {
                   BlockType Product
                   Name "First times cosine"
+                  Ports [2, 1]
                   Position [430, 40, 565, 78]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "Second times sine"
+                  Ports [2, 1]
                   Position [430, 148, 565, 186]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "First times sine"
+                  Ports [2, 1]
                   Position [430, 256, 565, 294]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "Second times cosine"
+                  Ports [2, 1]
                   Position [430, 364, 565, 402]
                   Inputs "**"
                 }
                 Block {
                   BlockType Sum
                   Name "Rotated first"
+                  Ports [2, 1]
                   Position [630, 40, 765, 78]
                   Inputs "++"
                 }
                 Block {
                   BlockType Sum
                   Name "Rotated second"
+                  Ports [2, 1]
                   Position [630, 256, 765, 294]
                   Inputs "+-"
                 }
                 Block {
                   BlockType Mux
                   Name "Join components"
+                  Ports [2, 1]
                   Position [830, 148, 840, 186]
                   Inputs "2"
                 }
                 Block {
                   BlockType Outport
                   Name "Rotated vector"
+                  Ports [1, 0]
                   Position [1030, 156, 1070, 176]
                   Port "1"
                 }
@@ -232,6 +262,7 @@ Model {
                 Line {
                   SrcBlock "Yaw"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Cosine"
                     DstPort 1
@@ -244,6 +275,7 @@ Model {
                 Line {
                   SrcBlock "Components"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "First times cosine"
                     DstPort 1
@@ -256,6 +288,7 @@ Model {
                 Line {
                   SrcBlock "Cosine"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "First times cosine"
                     DstPort 2
@@ -268,6 +301,7 @@ Model {
                 Line {
                   SrcBlock "Components"
                   SrcPort 2
+                  Points [15, 0]
                   Branch {
                     DstBlock "Second times sine"
                     DstPort 1
@@ -280,6 +314,7 @@ Model {
                 Line {
                   SrcBlock "Sine"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Second times sine"
                     DstPort 2
@@ -336,58 +371,68 @@ Model {
             Block {
               BlockType Sum
               Name "Velocity error"
+              Ports [2, 1]
               Position [430, 40, 565, 78]
               Inputs "+-"
             }
             Block {
               BlockType Gain
               Name "Velocity gain"
+              Ports [1, 1]
               Position [630, 40, 765, 78]
               Gain "drone.velocity_gain_per_s"
             }
             Block {
               BlockType Gain
               Name "Drag feedforward"
+              Ports [1, 1]
               Position [630, 148, 765, 186]
               Gain "drone.linear_drag_N_per_m_s/drone.mass_kg"
             }
             Block {
               BlockType Sum
               Name "Requested acceleration"
+              Ports [2, 1]
               Position [830, 40, 965, 78]
               Inputs "++"
             }
             Block {
               BlockType SubSystem
               Name "Bound horizontal acceleration"
+              Ports [1, 1]
               Position [1030, 40, 1175, 84]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Acceleration"
+                  Ports [0, 1]
                   Position [30, 48, 70, 68]
                   Port "1"
                 }
                 Block {
                   BlockType DotProduct
                   Name "Squared magnitude"
+                  Ports [2, 1]
                   Position [230, 148, 365, 186]
                 }
                 Block {
                   BlockType Sqrt
                   Name "Magnitude"
+                  Ports [1, 1]
                   Position [430, 148, 565, 186]
                 }
                 Block {
                   BlockType Gain
                   Name "Relative to limit"
+                  Ports [1, 1]
                   Position [630, 148, 765, 186]
                   Gain "1/drone.max_accel_m_s2"
                 }
                 Block {
                   BlockType Saturate
                   Name "Minimum divisor of one"
+                  Ports [1, 1]
                   Position [830, 148, 965, 186]
                   LowerLimit "1"
                   UpperLimit "inf"
@@ -395,18 +440,21 @@ Model {
                 Block {
                   BlockType Product
                   Name "Scale vector"
+                  Ports [2, 1]
                   Position [1030, 40, 1165, 78]
                   Inputs "*/"
                 }
                 Block {
                   BlockType Outport
                   Name "Bounded acceleration"
+                  Ports [1, 0]
                   Position [1230, 48, 1270, 68]
                   Port "1"
                 }
                 Line {
                   SrcBlock "Acceleration"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Squared magnitude"
                     DstPort 1
@@ -455,30 +503,35 @@ Model {
             Block {
               BlockType SubSystem
               Name "Convert acceleration to tilt"
+              Ports [1, 1]
               Position [1230, 40, 1375, 84]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Forward and right acceleration"
+                  Ports [0, 1]
                   Position [30, 48, 70, 68]
                   Port "1"
                 }
                 Block {
                   BlockType Gain
                   Name "Divide by gravity"
+                  Ports [1, 1]
                   Position [230, 40, 365, 78]
                   Gain "1/drone.gravity_m_s2"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Tilt angles"
+                  Ports [1, 1]
                   Position [430, 40, 565, 78]
                   Operator "atan"
                 }
                 Block {
                   BlockType Gain
                   Name "Right to roll and forward to pitch"
+                  Ports [1, 1]
                   Position [630, 40, 765, 78]
                   Gain "[0 1;-1 0]"
                   Multiplication "Matrix(K*u)"
@@ -486,6 +539,7 @@ Model {
                 Block {
                   BlockType Outport
                   Name "Roll and pitch"
+                  Ports [1, 0]
                   Position [830, 48, 870, 68]
                   Port "1"
                 }
@@ -518,6 +572,7 @@ Model {
             Block {
               BlockType Outport
               Name "Roll and pitch demand"
+              Ports [1, 0]
               Position [1430, 48, 1470, 68]
               Port "1"
             }
@@ -536,6 +591,7 @@ Model {
             Line {
               SrcBlock "Forward and right demand"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Velocity error"
                 DstPort 1
@@ -592,108 +648,126 @@ Model {
         Block {
           BlockType SubSystem
           Name "Height and climb"
+          Ports [5, 1]
           Position [630, 256, 775, 336]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Climb demand"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Height demand"
+              Ports [0, 1]
               Position [30, 156, 70, 176]
               Port "2"
             }
             Block {
               BlockType Inport
               Name "Down position"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "3"
             }
             Block {
               BlockType Inport
               Name "Down velocity"
+              Ports [0, 1]
               Position [30, 372, 70, 392]
               Port "4"
             }
             Block {
               BlockType Inport
               Name "Roll and pitch"
+              Ports [0, 1]
               Position [30, 588, 70, 608]
               Port "5"
             }
             Block {
               BlockType Sum
               Name "Height error"
+              Ports [2, 1]
               Position [230, 148, 365, 186]
               Inputs "++"
             }
             Block {
               BlockType Gain
               Name "Height gain"
+              Ports [1, 1]
               Position [430, 148, 565, 186]
               Gain "drone.height_gain_per_s"
             }
             Block {
               BlockType Sum
               Name "Requested climb"
+              Ports [2, 1]
               Position [630, 40, 765, 78]
               Inputs "++"
             }
             Block {
               BlockType Sum
               Name "Climb error"
+              Ports [2, 1]
               Position [830, 148, 965, 186]
               Inputs "++"
             }
             Block {
               BlockType Gain
               Name "Climb gain times mass"
+              Ports [1, 1]
               Position [1030, 148, 1165, 186]
               Gain "drone.mass_kg*drone.climb_gain_per_s"
             }
             Block {
               BlockType Gain
               Name "Vertical drag feedforward"
+              Ports [1, 1]
               Position [1030, 40, 1165, 78]
               Gain "drone.linear_drag_N_per_m_s"
             }
             Block {
               BlockType Constant
               Name "Weight"
+              Ports [0, 1]
               Position [1030, 256, 1165, 294]
               Value "drone.mass_kg*drone.gravity_m_s2"
             }
             Block {
               BlockType Sum
               Name "Upward force"
+              Ports [3, 1]
               Position [1230, 148, 1365, 202]
               Inputs "+++"
             }
             Block {
               BlockType Trigonometry
               Name "Roll and pitch cosines"
+              Ports [1, 1]
               Position [430, 580, 565, 618]
               Operator "cos"
             }
             Block {
               BlockType Demux
               Name "Cosine components"
+              Ports [1, 2]
               Position [630, 580, 639, 628]
               Outputs "[1 1]"
             }
             Block {
               BlockType Product
               Name "Vertical projection"
+              Ports [2, 1]
               Position [830, 580, 965, 618]
               Inputs "**"
             }
             Block {
               BlockType Saturate
               Name "Projection floor"
+              Ports [1, 1]
               Position [1030, 580, 1165, 618]
               LowerLimit "0.5"
               UpperLimit "1"
@@ -701,12 +775,14 @@ Model {
             Block {
               BlockType Product
               Name "Tilt compensation"
+              Ports [2, 1]
               Position [1430, 148, 1565, 186]
               Inputs "*/"
             }
             Block {
               BlockType Outport
               Name "Collective thrust"
+              Ports [1, 0]
               Position [1630, 156, 1670, 176]
               Port "1"
             }
@@ -743,6 +819,7 @@ Model {
             Line {
               SrcBlock "Requested climb"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Climb error"
                 DstPort 1
@@ -835,60 +912,70 @@ Model {
         Block {
           BlockType SubSystem
           Name "Attitude and body rates"
+          Ports [4, 1]
           Position [1030, 40, 1175, 104]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Demanded roll and pitch"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Measured roll and pitch"
+              Ports [0, 1]
               Position [30, 156, 70, 176]
               Port "2"
             }
             Block {
               BlockType Inport
               Name "Demanded yaw rate"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "3"
             }
             Block {
               BlockType Inport
               Name "Body rates"
+              Ports [0, 1]
               Position [30, 372, 70, 392]
               Port "4"
             }
             Block {
               BlockType Sum
               Name "Angle error"
+              Ports [2, 1]
               Position [230, 40, 365, 78]
               Inputs "+-"
             }
             Block {
               BlockType Gain
               Name "Angle gain"
+              Ports [1, 1]
               Position [430, 40, 565, 78]
               Gain "drone.tilt_gain_per_s"
             }
             Block {
               BlockType Mux
               Name "Desired body rates"
+              Ports [2, 1]
               Position [630, 148, 640, 186]
               Inputs "2"
             }
             Block {
               BlockType Sum
               Name "Rate error"
+              Ports [2, 1]
               Position [830, 148, 965, 186]
               Inputs "+-"
             }
             Block {
               BlockType Gain
               Name "Inertia times rate gain"
+              Ports [1, 1]
               Position [1030, 148, 1165, 186]
               Gain "diag(drone.inertia_kg_m2(:).*drone.rate_gain_per_s(:))"
               Multiplication "Matrix(K*u)"
@@ -896,18 +983,21 @@ Model {
             Block {
               BlockType Gain
               Name "Rotational drag"
+              Ports [1, 1]
               Position [1030, 364, 1165, 402]
               Gain "drone.angular_drag_Nm_per_rad_s"
             }
             Block {
               BlockType Sum
               Name "Requested moments"
+              Ports [2, 1]
               Position [1230, 148, 1365, 186]
               Inputs "++"
             }
             Block {
               BlockType Outport
               Name "Body moments"
+              Ports [1, 0]
               Position [1430, 156, 1470, 176]
               Port "1"
             }
@@ -950,6 +1040,7 @@ Model {
             Line {
               SrcBlock "Body rates"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Rate error"
                 DstPort 2
@@ -988,12 +1079,14 @@ Model {
         Block {
           BlockType Mux
           Name "Collective roll pitch yaw"
+          Ports [2, 1]
           Position [1230, 148, 1240, 186]
           Inputs "2"
         }
         Block {
           BlockType Outport
           Name "Requested loads"
+          Ports [1, 0]
           Position [1430, 156, 1470, 176]
           Port "1"
         }
@@ -1066,6 +1159,7 @@ Model {
         Line {
           SrcBlock "Feedback channels"
           SrcPort 5
+          Points [15, 0]
           Branch {
             DstBlock "Height and climb"
             DstPort 5
@@ -1116,18 +1210,21 @@ Model {
     Block {
       BlockType SubSystem
       Name "Motor mixer"
-      Position [393, 90, 509, 154]
+      Ports [1, 1]
+      Position [675, 100, 860, 160]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType Inport
           Name "requested loads"
+          Ports [0, 1]
           Position [20, 75, 60, 95]
           Port "1"
         }
         Block {
           BlockType Gain
           Name "Mix thrust and moments"
+          Ports [1, 1]
           Position [140, 63, 300, 110]
           Gain "drone.allocation"
           Multiplication "Matrix(K*u)"
@@ -1135,18 +1232,21 @@ Model {
         Block {
           BlockType SubSystem
           Name "Rotor thrust limits"
+          Ports [1, 1]
           Position [370, 63, 505, 110]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Raw rotor thrusts"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Gain
               Name "Mean rotor thrust"
+              Ports [1, 1]
               Position [230, 148, 365, 186]
               Gain "ones(1,4)/4"
               Multiplication "Matrix(K*u)"
@@ -1154,6 +1254,7 @@ Model {
             Block {
               BlockType Saturate
               Name "Available collective"
+              Ports [1, 1]
               Position [430, 256, 565, 294]
               LowerLimit "0"
               UpperLimit "drone.max_thrust"
@@ -1161,30 +1262,35 @@ Model {
             Block {
               BlockType Sum
               Name "Differential thrusts"
+              Ports [2, 1]
               Position [430, 40, 565, 78]
               Inputs "+-"
             }
             Block {
               BlockType SubSystem
               Name "Scale to motor limits"
+              Ports [2, 1]
               Position [630, 148, 775, 192]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Differential thrusts"
+                  Ports [0, 1]
                   Position [30, 156, 70, 176]
                   Port "1"
                 }
                 Block {
                   BlockType Inport
                   Name "Collective per rotor"
+                  Ports [0, 1]
                   Position [30, 372, 70, 392]
                   Port "2"
                 }
                 Block {
                   BlockType MinMax
                   Name "Largest increase"
+                  Ports [1, 1]
                   Position [230, 40, 365, 78]
                   Function "max"
                   Inputs "1"
@@ -1192,6 +1298,7 @@ Model {
                 Block {
                   BlockType MinMax
                   Name "Largest decrease"
+                  Ports [1, 1]
                   Position [230, 256, 365, 294]
                   Function "min"
                   Inputs "1"
@@ -1199,24 +1306,28 @@ Model {
                 Block {
                   BlockType Gain
                   Name "Magnitude of decrease"
+                  Ports [1, 1]
                   Position [430, 256, 565, 294]
                   Gain "-1"
                 }
                 Block {
                   BlockType Constant
                   Name "Maximum thrust"
+                  Ports [0, 1]
                   Position [230, 472, 365, 510]
                   Value "drone.max_thrust"
                 }
                 Block {
                   BlockType Sum
                   Name "Upward room"
+                  Ports [2, 1]
                   Position [430, 472, 565, 510]
                   Inputs "+-"
                 }
                 Block {
                   BlockType Saturate
                   Name "Positive increase divisor"
+                  Ports [1, 1]
                   Position [630, 40, 765, 78]
                   LowerLimit "eps"
                   UpperLimit "inf"
@@ -1224,6 +1335,7 @@ Model {
                 Block {
                   BlockType Saturate
                   Name "Positive decrease divisor"
+                  Ports [1, 1]
                   Position [630, 256, 765, 294]
                   LowerLimit "eps"
                   UpperLimit "inf"
@@ -1231,18 +1343,21 @@ Model {
                 Block {
                   BlockType Product
                   Name "Increase scale"
+                  Ports [2, 1]
                   Position [830, 40, 965, 78]
                   Inputs "*/"
                 }
                 Block {
                   BlockType Product
                   Name "Decrease scale"
+                  Ports [2, 1]
                   Position [830, 256, 965, 294]
                   Inputs "*/"
                 }
                 Block {
                   BlockType MinMax
                   Name "Smaller scale"
+                  Ports [2, 1]
                   Position [1030, 148, 1165, 186]
                   Function "min"
                   Inputs "2"
@@ -1250,6 +1365,7 @@ Model {
                 Block {
                   BlockType Saturate
                   Name "Unit scale limit"
+                  Ports [1, 1]
                   Position [1230, 148, 1365, 186]
                   LowerLimit "0"
                   UpperLimit "1"
@@ -1257,12 +1373,14 @@ Model {
                 Block {
                   BlockType Outport
                   Name "Scale"
+                  Ports [1, 0]
                   Position [1430, 156, 1470, 176]
                   Port "1"
                 }
                 Line {
                   SrcBlock "Differential thrusts"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Largest increase"
                     DstPort 1
@@ -1287,6 +1405,7 @@ Model {
                 Line {
                   SrcBlock "Collective per rotor"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Upward room"
                     DstPort 2
@@ -1355,18 +1474,21 @@ Model {
             Block {
               BlockType Product
               Name "Scale differences"
+              Ports [2, 1]
               Position [830, 40, 965, 78]
               Inputs "**"
             }
             Block {
               BlockType Sum
               Name "Restore collective"
+              Ports [2, 1]
               Position [1030, 148, 1165, 186]
               Inputs "++"
             }
             Block {
               BlockType Saturate
               Name "Thrust bounds"
+              Ports [1, 1]
               Position [1230, 148, 1365, 186]
               LowerLimit "0"
               UpperLimit "drone.max_thrust"
@@ -1374,12 +1496,14 @@ Model {
             Block {
               BlockType Outport
               Name "Feasible thrusts"
+              Ports [1, 0]
               Position [1430, 156, 1470, 176]
               Port "1"
             }
             Line {
               SrcBlock "Raw rotor thrusts"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Mean rotor thrust"
                 DstPort 1
@@ -1392,6 +1516,7 @@ Model {
             Line {
               SrcBlock "Mean rotor thrust"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Available collective"
                 DstPort 1
@@ -1404,6 +1529,7 @@ Model {
             Line {
               SrcBlock "Differential thrusts"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Scale to motor limits"
                 DstPort 1
@@ -1416,6 +1542,7 @@ Model {
             Line {
               SrcBlock "Available collective"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Scale to motor limits"
                 DstPort 2
@@ -1454,6 +1581,7 @@ Model {
         Block {
           BlockType Outport
           Name "motor thrusts"
+          Ports [1, 0]
           Position [560, 75, 600, 95]
           Port "1"
         }
@@ -1480,29 +1608,34 @@ Model {
     Block {
       BlockType SubSystem
       Name "Thrust to speed"
-      Position [575, 90, 699, 154]
+      Ports [1, 1]
+      Position [1010, 100, 1200, 160]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType Inport
           Name "motor thrusts"
+          Ports [0, 1]
           Position [20, 80, 60, 100]
           Port "1"
         }
         Block {
           BlockType Gain
           Name "Inverse thrust coefficient"
+          Ports [1, 1]
           Position [140, 66, 300, 114]
           Gain "1/drone.kT"
         }
         Block {
           BlockType Sqrt
           Name "Square root"
+          Ports [1, 1]
           Position [370, 66, 473, 114]
         }
         Block {
           BlockType Outport
           Name "speed references"
+          Ports [1, 0]
           Position [550, 80, 590, 100]
           Port "1"
         }
@@ -1529,66 +1662,77 @@ Model {
     Block {
       BlockType SubSystem
       Name "Drone dynamics"
-      Position [763, 90, 897, 154]
+      Ports [1, 1]
+      Position [1345, 100, 1530, 160]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType Inport
           Name "Speed references"
+          Ports [0, 1]
           Position [30, 48, 70, 68]
           Port "1"
         }
         Block {
           BlockType SubSystem
           Name "Motor response"
+          Ports [1, 2]
           Position [230, 40, 375, 84]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Speed references"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Integrator
               Name "Rotor speed"
+              Ports [1, 1]
               Position [620, 68, 735, 116]
               InitialCondition "drone.x0(13:16)"
             }
             Block {
               BlockType Sum
               Name "Speed error"
+              Ports [2, 1]
               Position [230, 148, 365, 186]
               Inputs "+-"
             }
             Block {
               BlockType Gain
               Name "Inverse motor time constant"
+              Ports [1, 1]
               Position [430, 148, 565, 186]
               Gain "1/drone.speed_lag_s"
             }
             Block {
               BlockType Outport
               Name "Speed"
+              Ports [1, 0]
               Position [830, 48, 870, 68]
               Port "1"
             }
             Block {
               BlockType Product
               Name "Speed squared"
+              Ports [2, 1]
               Position [830, 148, 965, 186]
               Inputs "**"
             }
             Block {
               BlockType Gain
               Name "Propeller thrust"
+              Ports [1, 1]
               Position [1030, 148, 1165, 186]
               Gain "drone.kT"
             }
             Block {
               BlockType Gain
               Name "Thrust to body loads"
+              Ports [1, 1]
               Position [1230, 148, 1365, 186]
               Gain "drone.effectiveness"
               Multiplication "Matrix(K*u)"
@@ -1596,6 +1740,7 @@ Model {
             Block {
               BlockType Outport
               Name "Total force and moments"
+              Ports [1, 0]
               Position [1430, 156, 1470, 176]
               Port "2"
             }
@@ -1608,6 +1753,7 @@ Model {
             Line {
               SrcBlock "Rotor speed"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Speed error"
                 DstPort 2
@@ -1660,204 +1806,238 @@ Model {
         Block {
           BlockType Demux
           Name "Force and moments"
+          Ports [1, 2]
           Position [430, 148, 439, 196]
           Outputs "[1 3]"
         }
         Block {
           BlockType Integrator
           Name "Position"
+          Ports [1, 1]
           Position [1000, 40, 1110, 82]
           InitialCondition "drone.x0(1:3)"
         }
         Block {
           BlockType Integrator
           Name "Velocity"
+          Ports [1, 1]
           Position [1000, 148, 1110, 190]
           InitialCondition "drone.x0(4:6)"
         }
         Block {
           BlockType Integrator
           Name "Euler angles"
+          Ports [1, 1]
           Position [1000, 256, 1110, 298]
           InitialCondition "drone.x0(7:9)"
         }
         Block {
           BlockType Integrator
           Name "Body rates"
+          Ports [1, 1]
           Position [1000, 364, 1110, 406]
           InitialCondition "drone.x0(10:12)"
         }
         Block {
           BlockType SubSystem
           Name "Linear acceleration"
+          Ports [3, 1]
           Position [630, 148, 775, 196]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Total thrust"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Euler angles"
+              Ports [0, 1]
               Position [30, 156, 70, 176]
               Port "2"
             }
             Block {
               BlockType Inport
               Name "NED velocity"
+              Ports [0, 1]
               Position [30, 372, 70, 392]
               Port "3"
             }
             Block {
               BlockType SubSystem
               Name "Body thrust direction"
+              Ports [1, 1]
               Position [230, 148, 375, 192]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Euler angles"
+                  Ports [0, 1]
                   Position [30, 156, 70, 176]
                   Port "1"
                 }
                 Block {
                   BlockType Demux
                   Name "Roll pitch yaw"
+                  Ports [1, 3]
                   Position [230, 148, 239, 220]
                   Outputs "[1 1 1]"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Cos roll"
+                  Ports [1, 1]
                   Position [430, 40, 565, 78]
                   Operator "cos"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Sin roll"
+                  Ports [1, 1]
                   Position [430, 148, 565, 186]
                   Operator "sin"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Sin pitch"
+                  Ports [1, 1]
                   Position [430, 256, 565, 294]
                   Operator "sin"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Cos pitch"
+                  Ports [1, 1]
                   Position [430, 364, 565, 402]
                   Operator "cos"
                 }
                 Block {
                   BlockType Product
                   Name "Forward component"
+                  Ports [2, 1]
                   Position [630, 40, 765, 78]
                   Inputs "**"
                 }
                 Block {
                   BlockType Gain
                   Name "Right component"
+                  Ports [1, 1]
                   Position [630, 148, 765, 186]
                   Gain "-1"
                 }
                 Block {
                   BlockType Product
                   Name "Down component"
+                  Ports [2, 1]
                   Position [630, 364, 765, 402]
                   Inputs "**"
                 }
                 Block {
                   BlockType Mux
                   Name "Planar projection"
+                  Ports [2, 1]
                   Position [830, 148, 840, 186]
                   Inputs "2"
                 }
                 Block {
                   BlockType SubSystem
                   Name "Rotate to north and east"
+                  Ports [2, 1]
                   Position [1030, 148, 1175, 192]
                   System {
                     Location [20, 60, 1200, 700]
                     Block {
                       BlockType Inport
                       Name "Planar components"
+                      Ports [0, 1]
                       Position [30, 156, 70, 176]
                       Port "1"
                     }
                     Block {
                       BlockType Demux
                       Name "Components"
+                      Ports [1, 2]
                       Position [230, 148, 239, 196]
                       Outputs "[1 1]"
                     }
                     Block {
                       BlockType Inport
                       Name "Yaw"
+                      Ports [0, 1]
                       Position [30, 372, 70, 392]
                       Port "2"
                     }
                     Block {
                       BlockType Trigonometry
                       Name "Cosine"
+                      Ports [1, 1]
                       Position [230, 364, 365, 402]
                       Operator "cos"
                     }
                     Block {
                       BlockType Trigonometry
                       Name "Sine"
+                      Ports [1, 1]
                       Position [230, 472, 365, 510]
                       Operator "sin"
                     }
                     Block {
                       BlockType Product
                       Name "First times cosine"
+                      Ports [2, 1]
                       Position [430, 40, 565, 78]
                       Inputs "**"
                     }
                     Block {
                       BlockType Product
                       Name "Second times sine"
+                      Ports [2, 1]
                       Position [430, 148, 565, 186]
                       Inputs "**"
                     }
                     Block {
                       BlockType Product
                       Name "First times sine"
+                      Ports [2, 1]
                       Position [430, 256, 565, 294]
                       Inputs "**"
                     }
                     Block {
                       BlockType Product
                       Name "Second times cosine"
+                      Ports [2, 1]
                       Position [430, 364, 565, 402]
                       Inputs "**"
                     }
                     Block {
                       BlockType Sum
                       Name "Rotated first"
+                      Ports [2, 1]
                       Position [630, 40, 765, 78]
                       Inputs "+-"
                     }
                     Block {
                       BlockType Sum
                       Name "Rotated second"
+                      Ports [2, 1]
                       Position [630, 256, 765, 294]
                       Inputs "++"
                     }
                     Block {
                       BlockType Mux
                       Name "Join components"
+                      Ports [2, 1]
                       Position [830, 148, 840, 186]
                       Inputs "2"
                     }
                     Block {
                       BlockType Outport
                       Name "Rotated vector"
+                      Ports [1, 0]
                       Position [1030, 156, 1070, 176]
                       Port "1"
                     }
@@ -1870,6 +2050,7 @@ Model {
                     Line {
                       SrcBlock "Yaw"
                       SrcPort 1
+                      Points [15, 0]
                       Branch {
                         DstBlock "Cosine"
                         DstPort 1
@@ -1882,6 +2063,7 @@ Model {
                     Line {
                       SrcBlock "Components"
                       SrcPort 1
+                      Points [15, 0]
                       Branch {
                         DstBlock "First times cosine"
                         DstPort 1
@@ -1894,6 +2076,7 @@ Model {
                     Line {
                       SrcBlock "Cosine"
                       SrcPort 1
+                      Points [15, 0]
                       Branch {
                         DstBlock "First times cosine"
                         DstPort 2
@@ -1906,6 +2089,7 @@ Model {
                     Line {
                       SrcBlock "Components"
                       SrcPort 2
+                      Points [15, 0]
                       Branch {
                         DstBlock "Second times sine"
                         DstPort 1
@@ -1918,6 +2102,7 @@ Model {
                     Line {
                       SrcBlock "Sine"
                       SrcPort 1
+                      Points [15, 0]
                       Branch {
                         DstBlock "Second times sine"
                         DstPort 2
@@ -1974,12 +2159,14 @@ Model {
                 Block {
                   BlockType Mux
                   Name "Direction vector"
+                  Ports [2, 1]
                   Position [1230, 148, 1240, 186]
                   Inputs "2"
                 }
                 Block {
                   BlockType Outport
                   Name "Body down axis in NED"
+                  Ports [1, 0]
                   Position [1430, 156, 1470, 176]
                   Port "1"
                 }
@@ -1992,6 +2179,7 @@ Model {
                 Line {
                   SrcBlock "Roll pitch yaw"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Cos roll"
                     DstPort 1
@@ -2004,6 +2192,7 @@ Model {
                 Line {
                   SrcBlock "Roll pitch yaw"
                   SrcPort 2
+                  Points [15, 0]
                   Branch {
                     DstBlock "Sin pitch"
                     DstPort 1
@@ -2016,6 +2205,7 @@ Model {
                 Line {
                   SrcBlock "Cos roll"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Forward component"
                     DstPort 1
@@ -2090,42 +2280,49 @@ Model {
             Block {
               BlockType Product
               Name "Thrust along body down"
+              Ports [2, 1]
               Position [430, 40, 565, 78]
               Inputs "**"
             }
             Block {
               BlockType Gain
               Name "Linear drag"
+              Ports [1, 1]
               Position [430, 364, 565, 402]
               Gain "drone.linear_drag_N_per_m_s"
             }
             Block {
               BlockType Sum
               Name "Thrust and drag"
+              Ports [2, 1]
               Position [630, 148, 765, 186]
               Inputs "++"
             }
             Block {
               BlockType Gain
               Name "Force to acceleration"
+              Ports [1, 1]
               Position [830, 148, 965, 186]
               Gain "1/drone.mass_kg"
             }
             Block {
               BlockType Constant
               Name "NED gravity"
+              Ports [0, 1]
               Position [830, 40, 965, 78]
               Value "[0;0;drone.gravity_m_s2]"
             }
             Block {
               BlockType Sum
               Name "Gravity minus thrust and drag"
+              Ports [2, 1]
               Position [1030, 40, 1165, 78]
               Inputs "+-"
             }
             Block {
               BlockType Outport
               Name "NED acceleration"
+              Ports [1, 0]
               Position [1230, 48, 1270, 68]
               Port "1"
             }
@@ -2194,125 +2391,146 @@ Model {
         Block {
           BlockType SubSystem
           Name "Euler angle kinematics"
+          Ports [2, 1]
           Position [630, 256, 775, 300]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Euler angles"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Body rates"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "2"
             }
             Block {
               BlockType Demux
               Name "Roll pitch yaw"
+              Ports [1, 3]
               Position [230, 40, 239, 112]
               Outputs "[1 1 1]"
             }
             Block {
               BlockType Terminator
               Name "Roll pitch yaw unused 3"
+              Ports [1, 0]
               Position [298, 94, 310, 106]
             }
             Block {
               BlockType Demux
               Name "Body rate components"
+              Ports [1, 3]
               Position [230, 256, 239, 328]
               Outputs "[1 1 1]"
             }
             Block {
               BlockType Trigonometry
               Name "Sin roll"
+              Ports [1, 1]
               Position [430, 40, 565, 78]
               Operator "sin"
             }
             Block {
               BlockType Trigonometry
               Name "Cos roll"
+              Ports [1, 1]
               Position [430, 148, 565, 186]
               Operator "cos"
             }
             Block {
               BlockType Trigonometry
               Name "Cos pitch"
+              Ports [1, 1]
               Position [430, 364, 565, 402]
               Operator "cos"
             }
             Block {
               BlockType Trigonometry
               Name "Tan pitch"
+              Ports [1, 1]
               Position [430, 472, 565, 510]
               Operator "tan"
             }
             Block {
               BlockType Product
               Name "Pitch sine term"
+              Ports [2, 1]
               Position [630, 40, 765, 78]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Yaw cosine term"
+              Ports [2, 1]
               Position [630, 148, 765, 186]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Pitch cosine term"
+              Ports [2, 1]
               Position [630, 256, 765, 294]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Yaw sine term"
+              Ports [2, 1]
               Position [630, 364, 765, 402]
               Inputs "**"
             }
             Block {
               BlockType Sum
               Name "Rotated yaw component"
+              Ports [2, 1]
               Position [830, 40, 965, 78]
               Inputs "++"
             }
             Block {
               BlockType Sum
               Name "Pitch derivative"
+              Ports [2, 1]
               Position [830, 256, 965, 294]
               Inputs "+-"
             }
             Block {
               BlockType Product
               Name "Rotation coupling"
+              Ports [2, 1]
               Position [1030, 40, 1165, 78]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Yaw derivative"
+              Ports [2, 1]
               Position [1030, 364, 1165, 402]
               Inputs "*/"
             }
             Block {
               BlockType Sum
               Name "Roll derivative"
+              Ports [2, 1]
               Position [1230, 40, 1365, 78]
               Inputs "++"
             }
             Block {
               BlockType Mux
               Name "Euler rates"
+              Ports [3, 1]
               Position [1430, 148, 1440, 202]
               Inputs "3"
             }
             Block {
               BlockType Outport
               Name "Euler derivatives"
+              Ports [1, 0]
               Position [1630, 156, 1670, 176]
               Port "1"
             }
@@ -2337,6 +2555,7 @@ Model {
             Line {
               SrcBlock "Roll pitch yaw"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Sin roll"
                 DstPort 1
@@ -2349,6 +2568,7 @@ Model {
             Line {
               SrcBlock "Roll pitch yaw"
               SrcPort 2
+              Points [15, 0]
               Branch {
                 DstBlock "Cos pitch"
                 DstPort 1
@@ -2361,6 +2581,7 @@ Model {
             Line {
               SrcBlock "Body rate components"
               SrcPort 2
+              Points [15, 0]
               Branch {
                 DstBlock "Pitch sine term"
                 DstPort 1
@@ -2373,6 +2594,7 @@ Model {
             Line {
               SrcBlock "Sin roll"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Pitch sine term"
                 DstPort 2
@@ -2385,6 +2607,7 @@ Model {
             Line {
               SrcBlock "Body rate components"
               SrcPort 3
+              Points [15, 0]
               Branch {
                 DstBlock "Yaw cosine term"
                 DstPort 1
@@ -2397,6 +2620,7 @@ Model {
             Line {
               SrcBlock "Cos roll"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Yaw cosine term"
                 DstPort 2
@@ -2433,6 +2657,7 @@ Model {
             Line {
               SrcBlock "Rotated yaw component"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Rotation coupling"
                 DstPort 1
@@ -2495,54 +2720,63 @@ Model {
         Block {
           BlockType SubSystem
           Name "Angular acceleration"
+          Ports [2, 1]
           Position [630, 364, 775, 408]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Moments"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Body rates"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "2"
             }
             Block {
               BlockType Demux
               Name "Roll pitch yaw rates"
+              Ports [1, 3]
               Position [230, 256, 239, 328]
               Outputs "[1 1 1]"
             }
             Block {
               BlockType Product
               Name "Pitch times yaw"
+              Ports [2, 1]
               Position [430, 148, 565, 186]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Roll times yaw"
+              Ports [2, 1]
               Position [430, 256, 565, 294]
               Inputs "**"
             }
             Block {
               BlockType Product
               Name "Roll times pitch"
+              Ports [2, 1]
               Position [430, 364, 565, 402]
               Inputs "**"
             }
             Block {
               BlockType Mux
               Name "Rate products"
+              Ports [3, 1]
               Position [630, 256, 640, 310]
               Inputs "3"
             }
             Block {
               BlockType Gain
               Name "Gyroscopic moment"
+              Ports [1, 1]
               Position [830, 256, 965, 294]
               Gain "drone.gyro_gain"
               Multiplication "Matrix(K*u)"
@@ -2550,18 +2784,21 @@ Model {
             Block {
               BlockType Gain
               Name "Angular drag"
+              Ports [1, 1]
               Position [830, 364, 965, 402]
               Gain "drone.angular_drag_Nm_per_rad_s"
             }
             Block {
               BlockType Sum
               Name "Net body moment"
+              Ports [3, 1]
               Position [1030, 148, 1165, 202]
               Inputs "+--"
             }
             Block {
               BlockType Gain
               Name "Inverse inertia"
+              Ports [1, 1]
               Position [1230, 148, 1365, 186]
               Gain "diag(1./drone.inertia_kg_m2(:))"
               Multiplication "Matrix(K*u)"
@@ -2569,12 +2806,14 @@ Model {
             Block {
               BlockType Outport
               Name "Angular acceleration"
+              Ports [1, 0]
               Position [1430, 156, 1470, 176]
               Port "1"
             }
             Line {
               SrcBlock "Body rates"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Roll pitch yaw rates"
                 DstPort 1
@@ -2587,6 +2826,7 @@ Model {
             Line {
               SrcBlock "Roll pitch yaw rates"
               SrcPort 2
+              Points [15, 0]
               Branch {
                 DstBlock "Pitch times yaw"
                 DstPort 1
@@ -2599,6 +2839,7 @@ Model {
             Line {
               SrcBlock "Roll pitch yaw rates"
               SrcPort 3
+              Points [15, 0]
               Branch {
                 DstBlock "Pitch times yaw"
                 DstPort 2
@@ -2611,6 +2852,7 @@ Model {
             Line {
               SrcBlock "Roll pitch yaw rates"
               SrcPort 1
+              Points [15, 0]
               Branch {
                 DstBlock "Roll times yaw"
                 DstPort 1
@@ -2679,18 +2921,21 @@ Model {
         Block {
           BlockType Mux
           Name "Combine flight state"
+          Ports [5, 1]
           Position [1230, 148, 1240, 238]
           Inputs "5"
         }
         Block {
           BlockType ZeroOrderHold
           Name "Flight computer sample"
+          Ports [1, 1]
           Position [1430, 148, 1565, 186]
           SampleTime "drone.step_s"
         }
         Block {
           BlockType Outport
           Name "Measured state"
+          Ports [1, 0]
           Position [1630, 156, 1670, 176]
           Port "1"
         }
@@ -2715,6 +2960,7 @@ Model {
         Line {
           SrcBlock "Euler angles"
           SrcPort 1
+          Points [15, 0]
           Branch {
             DstBlock "Linear acceleration"
             DstPort 2
@@ -2731,6 +2977,7 @@ Model {
         Line {
           SrcBlock "Velocity"
           SrcPort 1
+          Points [15, 0]
           Branch {
             DstBlock "Linear acceleration"
             DstPort 3
@@ -2747,6 +2994,7 @@ Model {
         Line {
           SrcBlock "Body rates"
           SrcPort 1
+          Points [15, 0]
           Branch {
             DstBlock "Euler angle kinematics"
             DstPort 2
@@ -2813,57 +3061,67 @@ Model {
     Block {
       BlockType SubSystem
       Name "Flight scopes"
-      Position [380, 275, 526, 333]
+      Ports [0, 0]
+      Position [385, 250, 555, 310]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType SubSystem
           Name "Flight response"
+          Ports [2, 0]
           Position [385, 40, 539, 104]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Reference"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Instruments"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "2"
             }
             Block {
               BlockType Demux
               Name "Reference channels"
+              Ports [1, 4]
               Position [230, 40, 239, 136]
               Outputs "[1 2 1 1]"
             }
             Block {
               BlockType Terminator
               Name "Reference channels unused 2"
+              Ports [1, 0]
               Position [298, 70, 310, 82]
             }
             Block {
               BlockType Terminator
               Name "Reference channels unused 4"
+              Ports [1, 0]
               Position [298, 118, 310, 130]
             }
             Block {
               BlockType Demux
               Name "Measured channels"
+              Ports [1, 5]
               Position [230, 256, 239, 376]
               Outputs "[1 1 2 3 8]"
             }
             Block {
               BlockType Terminator
               Name "Measured channels unused 5"
+              Ports [1, 0]
               Position [298, 358, 310, 370]
             }
             Block {
               BlockType Scope
               Name "Forward speed - m per s"
+              Ports [2, 0]
               Position [630, 40, 765, 80]
               NumInputPorts "2"
               OpenAtSimulationStart "off"
@@ -2871,6 +3129,7 @@ Model {
             Block {
               BlockType Scope
               Name "Height - m"
+              Ports [2, 0]
               Position [630, 148, 765, 188]
               NumInputPorts "2"
               OpenAtSimulationStart "off"
@@ -2878,6 +3137,7 @@ Model {
             Block {
               BlockType Scope
               Name "North and east - m"
+              Ports [1, 0]
               Position [630, 256, 765, 296]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -2885,6 +3145,7 @@ Model {
             Block {
               BlockType Scope
               Name "Roll pitch yaw - deg"
+              Ports [1, 0]
               Position [630, 364, 765, 404]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -2964,24 +3225,28 @@ Model {
         Block {
           BlockType SubSystem
           Name "Mixer inputs"
+          Ports [1, 0]
           Position [385, 162, 539, 212]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Controller request"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Demux
               Name "Force and moments"
+              Ports [1, 2]
               Position [230, 40, 239, 88]
               Outputs "[1 3]"
             }
             Block {
               BlockType Scope
               Name "Collective thrust - N"
+              Ports [1, 0]
               Position [430, 40, 565, 80]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -2989,6 +3254,7 @@ Model {
             Block {
               BlockType Scope
               Name "Roll pitch yaw moments - Nm"
+              Ports [1, 0]
               Position [430, 148, 565, 188]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -3016,36 +3282,42 @@ Model {
         Block {
           BlockType SubSystem
           Name "Motor outputs"
+          Ports [3, 0]
           Position [385, 282, 539, 346]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "Thrust references"
+              Ports [0, 1]
               Position [30, 48, 70, 68]
               Port "1"
             }
             Block {
               BlockType Inport
               Name "Speed references"
+              Ports [0, 1]
               Position [30, 156, 70, 176]
               Port "2"
             }
             Block {
               BlockType Inport
               Name "Instruments"
+              Ports [0, 1]
               Position [30, 264, 70, 284]
               Port "3"
             }
             Block {
               BlockType Demux
               Name "Four thrust references - N channels"
+              Ports [1, 4]
               Position [430, 40, 439, 136]
               Outputs "[1 1 1 1]"
             }
             Block {
               BlockType Scope
               Name "Four thrust references - N"
+              Ports [4, 0]
               Position [630, 40, 765, 104]
               NumInputPorts "4"
               OpenAtSimulationStart "off"
@@ -3053,18 +3325,21 @@ Model {
             Block {
               BlockType Gain
               Name "Radians per second to rpm"
+              Ports [1, 1]
               Position [230, 148, 365, 186]
               Gain "30/pi"
             }
             Block {
               BlockType Demux
               Name "Four speed references - rpm channels"
+              Ports [1, 4]
               Position [430, 148, 439, 244]
               Outputs "[1 1 1 1]"
             }
             Block {
               BlockType Scope
               Name "Four speed references - rpm"
+              Ports [4, 0]
               Position [630, 148, 765, 212]
               NumInputPorts "4"
               OpenAtSimulationStart "off"
@@ -3072,17 +3347,20 @@ Model {
             Block {
               BlockType Demux
               Name "Motor measurements"
+              Ports [1, 3]
               Position [230, 256, 239, 328]
               Outputs "[7 4 4]"
             }
             Block {
               BlockType Terminator
               Name "Motor measurements unused 1"
+              Ports [1, 0]
               Position [298, 262, 310, 274]
             }
             Block {
               BlockType Scope
               Name "Actual rotor speeds - rpm"
+              Ports [1, 0]
               Position [630, 256, 765, 296]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -3090,6 +3368,7 @@ Model {
             Block {
               BlockType Scope
               Name "Propeller loads - Nm"
+              Ports [1, 0]
               Position [630, 364, 765, 404]
               NumInputPorts "1"
               OpenAtSimulationStart "off"
@@ -3197,123 +3476,144 @@ Model {
         Block {
           BlockType SubSystem
           Name "Flight measurements"
+          Ports [1, 1]
           Position [165, 109, 303, 157]
           System {
             Location [20, 60, 1200, 700]
             Block {
               BlockType Inport
               Name "State"
+              Ports [0, 1]
               Position [30, 156, 70, 176]
               Port "1"
             }
             Block {
               BlockType Demux
               Name "State components"
+              Ports [1, 7]
               Position [230, 148, 239, 316]
               Outputs "[2 1 2 1 3 3 4]"
             }
             Block {
               BlockType Terminator
               Name "State components unused 4"
+              Ports [1, 0]
               Position [298, 226, 310, 238]
             }
             Block {
               BlockType Terminator
               Name "State components unused 6"
+              Ports [1, 0]
               Position [298, 274, 310, 286]
             }
             Block {
               BlockType Demux
               Name "Heading channel"
+              Ports [1, 2]
               Position [430, 40, 439, 88]
               Outputs "[2 1]"
             }
             Block {
               BlockType Terminator
               Name "Heading channel unused 1"
+              Ports [1, 0]
               Position [498, 46, 510, 58]
             }
             Block {
               BlockType SubSystem
               Name "Velocity in body axes"
+              Ports [2, 1]
               Position [630, 40, 775, 84]
               System {
                 Location [20, 60, 1200, 700]
                 Block {
                   BlockType Inport
                   Name "Planar components"
+                  Ports [0, 1]
                   Position [30, 156, 70, 176]
                   Port "1"
                 }
                 Block {
                   BlockType Demux
                   Name "Components"
+                  Ports [1, 2]
                   Position [230, 148, 239, 196]
                   Outputs "[1 1]"
                 }
                 Block {
                   BlockType Inport
                   Name "Yaw"
+                  Ports [0, 1]
                   Position [30, 372, 70, 392]
                   Port "2"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Cosine"
+                  Ports [1, 1]
                   Position [230, 364, 365, 402]
                   Operator "cos"
                 }
                 Block {
                   BlockType Trigonometry
                   Name "Sine"
+                  Ports [1, 1]
                   Position [230, 472, 365, 510]
                   Operator "sin"
                 }
                 Block {
                   BlockType Product
                   Name "First times cosine"
+                  Ports [2, 1]
                   Position [430, 40, 565, 78]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "Second times sine"
+                  Ports [2, 1]
                   Position [430, 148, 565, 186]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "First times sine"
+                  Ports [2, 1]
                   Position [430, 256, 565, 294]
                   Inputs "**"
                 }
                 Block {
                   BlockType Product
                   Name "Second times cosine"
+                  Ports [2, 1]
                   Position [430, 364, 565, 402]
                   Inputs "**"
                 }
                 Block {
                   BlockType Sum
                   Name "Rotated first"
+                  Ports [2, 1]
                   Position [630, 40, 765, 78]
                   Inputs "++"
                 }
                 Block {
                   BlockType Sum
                   Name "Rotated second"
+                  Ports [2, 1]
                   Position [630, 256, 765, 294]
                   Inputs "+-"
                 }
                 Block {
                   BlockType Mux
                   Name "Join components"
+                  Ports [2, 1]
                   Position [830, 148, 840, 186]
                   Inputs "2"
                 }
                 Block {
                   BlockType Outport
                   Name "Rotated vector"
+                  Ports [1, 0]
                   Position [1030, 156, 1070, 176]
                   Port "1"
                 }
@@ -3326,6 +3626,7 @@ Model {
                 Line {
                   SrcBlock "Yaw"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Cosine"
                     DstPort 1
@@ -3338,6 +3639,7 @@ Model {
                 Line {
                   SrcBlock "Components"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "First times cosine"
                     DstPort 1
@@ -3350,6 +3652,7 @@ Model {
                 Line {
                   SrcBlock "Cosine"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "First times cosine"
                     DstPort 2
@@ -3362,6 +3665,7 @@ Model {
                 Line {
                   SrcBlock "Components"
                   SrcPort 2
+                  Points [15, 0]
                   Branch {
                     DstBlock "Second times sine"
                     DstPort 1
@@ -3374,6 +3678,7 @@ Model {
                 Line {
                   SrcBlock "Sine"
                   SrcPort 1
+                  Points [15, 0]
                   Branch {
                     DstBlock "Second times sine"
                     DstPort 2
@@ -3430,53 +3735,62 @@ Model {
             Block {
               BlockType Demux
               Name "Forward component"
+              Ports [1, 2]
               Position [830, 40, 839, 88]
               Outputs "[1 1]"
             }
             Block {
               BlockType Terminator
               Name "Forward component unused 2"
+              Ports [1, 0]
               Position [898, 70, 910, 82]
             }
             Block {
               BlockType Gain
               Name "Height above ground"
+              Ports [1, 1]
               Position [630, 148, 765, 186]
               Gain "-1"
             }
             Block {
               BlockType Gain
               Name "Radians to degrees"
+              Ports [1, 1]
               Position [630, 256, 765, 294]
               Gain "180/pi"
             }
             Block {
               BlockType Gain
               Name "Actual rotor rpm"
+              Ports [1, 1]
               Position [630, 364, 765, 402]
               Gain "30/pi"
             }
             Block {
               BlockType Product
               Name "Rotor speed squared"
+              Ports [2, 1]
               Position [430, 472, 565, 510]
               Inputs "**"
             }
             Block {
               BlockType Gain
               Name "Aerodynamic torque"
+              Ports [1, 1]
               Position [630, 472, 765, 510]
               Gain "drone.kQ"
             }
             Block {
               BlockType Mux
               Name "Instrument channels"
+              Ports [6, 1]
               Position [1030, 256, 1040, 364]
               Inputs "6"
             }
             Block {
               BlockType Outport
               Name "Measurements"
+              Ports [1, 0]
               Position [1230, 264, 1270, 284]
               Port "1"
             }
@@ -3501,6 +3815,7 @@ Model {
             Line {
               SrcBlock "State components"
               SrcPort 5
+              Points [15, 0]
               Branch {
                 DstBlock "Heading channel"
                 DstPort 1
@@ -3549,6 +3864,7 @@ Model {
             Line {
               SrcBlock "State components"
               SrcPort 7
+              Points [15, 0]
               Branch {
                 DstBlock "Actual rotor rpm"
                 DstPort 1
@@ -3615,30 +3931,35 @@ Model {
         Block {
           BlockType From
           Name "Read flight command"
+          Ports [0, 1]
           Position [18, 40, 154, 74]
           GotoTag "flight_command"
         }
         Block {
           BlockType From
           Name "Read flight state"
+          Ports [0, 1]
           Position [18, 115, 154, 149]
           GotoTag "flight_state"
         }
         Block {
           BlockType From
           Name "Read thrust and moments"
+          Ports [0, 1]
           Position [18, 170, 154, 204]
           GotoTag "thrust_and_moments"
         }
         Block {
           BlockType From
           Name "Read motor thrust"
+          Ports [0, 1]
           Position [18, 276, 154, 310]
           GotoTag "motor_thrust"
         }
         Block {
           BlockType From
           Name "Read motor speed reference"
+          Ports [0, 1]
           Position [18, 365, 154, 399]
           GotoTag "motor_speed_reference"
         }
@@ -3675,6 +3996,7 @@ Model {
         Line {
           SrcBlock "Flight measurements"
           SrcPort 1
+          Points [15, 0]
           Branch {
             DstBlock "Flight response"
             DstPort 2
@@ -3689,65 +4011,75 @@ Model {
     Block {
       BlockType Goto
       Name "Send flight command"
-      Position [100, 18, 244, 52]
+      Ports [1, 0]
+      Position [222, 20, 390, 50]
       GotoTag "flight_command"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
       Name "Send thrust and moments"
-      Position [285, 18, 429, 52]
+      Ports [1, 0]
+      Position [572, 20, 740, 50]
       GotoTag "thrust_and_moments"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
       Name "Send motor thrust"
-      Position [476, 18, 620, 52]
+      Ports [1, 0]
+      Position [902, 20, 1070, 50]
       GotoTag "motor_thrust"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
       Name "Send motor speed reference"
-      Position [666, 18, 810, 52]
+      Ports [1, 0]
+      Position [1242, 20, 1410, 50]
       GotoTag "motor_speed_reference"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
       Name "Send flight state"
-      Position [905, 18, 1049, 52]
+      Ports [1, 0]
+      Position [1572, 20, 1740, 50]
       GotoTag "flight_state"
       TagVisibility "global"
     }
     Block {
       BlockType From
       Name "Read flight state"
-      Position [60, 195, 196, 229]
+      Ports [0, 1]
+      Position [85, 185, 230, 217]
       GotoTag "flight_state"
     }
     Block {
       BlockType SubSystem
       Name "Front right motor replay"
-      Position [695, 265, 850, 330]
+      Ports [0, 1]
+      Position [760, 250, 945, 310]
       System {
         Location [20, 60, 1200, 700]
         Block {
           BlockType From
           Name "Read motor speed reference"
+          Ports [0, 1]
           Position [22, 50, 158, 84]
           GotoTag "motor_speed_reference"
         }
         Block {
           BlockType From
           Name "Read flight state"
+          Ports [0, 1]
           Position [22, 158, 158, 192]
           GotoTag "flight_state"
         }
         Block {
           BlockType Gain
           Name "Motor 1 speed demand"
+          Ports [1, 1]
           Position [230, 40, 365, 78]
           Gain "[1 0 0 0]"
           Multiplication "Matrix(K*u)"
@@ -3755,12 +4087,14 @@ Model {
         Block {
           BlockType Gain
           Name "Speed demand in rpm"
+          Ports [1, 1]
           Position [430, 40, 565, 78]
           Gain "30/pi"
         }
         Block {
           BlockType Gain
           Name "Motor 1 shaft speed"
+          Ports [1, 1]
           Position [230, 148, 365, 186]
           Gain "[zeros(1,12) 1 0 0 0]"
           Multiplication "Matrix(K*u)"
@@ -3768,30 +4102,35 @@ Model {
         Block {
           BlockType Product
           Name "Speed squared"
+          Ports [2, 1]
           Position [430, 148, 565, 186]
           Inputs "**"
         }
         Block {
           BlockType Gain
           Name "Resisting load in Nm"
+          Ports [1, 1]
           Position [630, 148, 765, 186]
           Gain "drone.kQ"
         }
         Block {
           BlockType Mux
           Name "Speed and load"
+          Ports [2, 1]
           Position [830, 40, 840, 78]
           Inputs "2"
         }
         Block {
           BlockType ZeroOrderHold
           Name "Replay samples"
+          Ports [1, 1]
           Position [1030, 40, 1165, 78]
           SampleTime "drone.step_s"
         }
         Block {
           BlockType Outport
           Name "Replay"
+          Ports [1, 0]
           Position [1230, 48, 1270, 68]
           Port "1"
         }
@@ -3816,6 +4155,7 @@ Model {
         Line {
           SrcBlock "Motor 1 shaft speed"
           SrcPort 1
+          Points [15, 0]
           Branch {
             DstBlock "Speed squared"
             DstPort 1
@@ -3860,17 +4200,20 @@ Model {
     Block {
       BlockType Outport
       Name "Motor 1 speed and load"
-      Position [940, 285, 980, 305]
+      Ports [1, 0]
+      Position [1060, 270, 1100, 290]
       Port "1"
     }
     Line {
       SrcBlock "Flight command"
       SrcPort 1
+      Points [15, 0]
       Branch {
         DstBlock "Flight controller"
         DstPort 1
       }
       Branch {
+        Points [0, -80]
         DstBlock "Send flight command"
         DstPort 1
       }
@@ -3878,11 +4221,13 @@ Model {
     Line {
       SrcBlock "Flight controller"
       SrcPort 1
+      Points [15, 0]
       Branch {
         DstBlock "Motor mixer"
         DstPort 1
       }
       Branch {
+        Points [0, -95]
         DstBlock "Send thrust and moments"
         DstPort 1
       }
@@ -3890,11 +4235,13 @@ Model {
     Line {
       SrcBlock "Motor mixer"
       SrcPort 1
+      Points [15, 0]
       Branch {
         DstBlock "Thrust to speed"
         DstPort 1
       }
       Branch {
+        Points [0, -95]
         DstBlock "Send motor thrust"
         DstPort 1
       }
@@ -3902,11 +4249,13 @@ Model {
     Line {
       SrcBlock "Thrust to speed"
       SrcPort 1
+      Points [15, 0]
       Branch {
         DstBlock "Drone dynamics"
         DstPort 1
       }
       Branch {
+        Points [0, -95]
         DstBlock "Send motor speed reference"
         DstPort 1
       }
@@ -3914,12 +4263,14 @@ Model {
     Line {
       SrcBlock "Drone dynamics"
       SrcPort 1
+      Points [15, 0; 0, -95]
       DstBlock "Send flight state"
       DstPort 1
     }
     Line {
       SrcBlock "Read flight state"
       SrcPort 1
+      Points [15, 0; 0, -56]
       DstBlock "Flight controller"
       DstPort 2
     }

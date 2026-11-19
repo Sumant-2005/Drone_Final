@@ -31,6 +31,59 @@ def test_toolbar_bundle():
             diff=[n for n in drive.namelist() if drive.read(n)!=original.read(n)]
             assert diff==['simulink/blockdiagram.xml']
             tree=ET.fromstring(drive.read(diff[0]))
-            assert tree.findtext(".//P[@Name='PreLoadFcn']")=='MotorParameters(false);'
+            assert not tree.findtext(".//P[@Name='PreLoadFcn']")
+            assert tree.findtext(".//P[@Name='PostLoadFcn']") == (
+                "addpath(fileparts(get_param('EMRAXDrive','FileName')),'-begin'); MotorParameters(false);")
+            assert "addpath(fileparts(get_param('DroneFlight','FileName')),'-begin'); FlightParameters;" in model
             assert tree.findtext(".//P[@Name='InitFcn']")=='MotorParameters;'
     print('4 self-contained files; flight output, motor input, mission and drive callbacks checked.')
+
+
+def test_serialized_flight_ports_and_branches():
+    # Inspect the delivered MDL text, independently of the diagram generator.
+    from collections import defaultdict
+    with ZipFile(ROOT/'downloads/Drone_BTP_Four_Files.zip') as bundle:
+        mdl = bundle.read('Drone_BTP/DroneFlight.mdl').decode()
+    stack = []
+    sections = []
+    for raw in mdl.splitlines():
+        text = raw.strip()
+        if text.endswith(' {'):
+            node = defaultdict(list)
+            if stack:
+                stack[-1][text[:-2]].append(node)
+            stack.append(node)
+            if text == 'System {':
+                sections.append(node)
+        elif text == '}':
+            stack.pop()
+        else:
+            key,value = text.split(' ',1)
+            stack[-1][key].append(value.strip('"'))
+    assert not stack
+    total = 0
+    for section in sections:
+        blocks = {b['Name'][0]: b for b in section['Block']}
+        ports = {name: tuple(json.loads(b['Ports'][0])) for name,b in blocks.items()}
+        used = set()
+        for line in section['Line']:
+            source = line['SrcBlock'][0]
+            assert 1 <= int(line['SrcPort'][0]) <= ports[source][1]
+            if line['Branch']:
+                assert line['Points'] and line['Points'][0] != '[0, 0]'
+            for endpoint in line['Branch'] or [line]:
+                dest = endpoint['DstBlock'][0]
+                port = int(endpoint['DstPort'][0])
+                assert 1 <= port <= ports[dest][0]
+                assert (dest,port) not in used
+                used.add((dest,port))
+        for name,(nin,nout) in ports.items():
+            assert all((name,p) in used for p in range(1,nin+1))
+            if blocks[name]['System']:
+                kids = blocks[name]['System'][0]['Block']
+                assert (nin,nout) == tuple(sum(k['BlockType']==[t] for k in kids)
+                                           for t in ('Inport','Outport'))
+        if 'Upward force' in blocks:
+            assert ports['Upward force'] == (3,1) and ('Upward force',3) in used
+        total += len(used)
+    print(f'Checked {total} destinations in {len(sections)} serialized flight diagrams.')

@@ -209,25 +209,63 @@ def emit_builder(g):
     lines+=["save_system(mdl,target);","catch problem","    close_system(mdl,0);","    rethrow(problem);","end","end"]
     return '\n'.join(lines)+'\n'
 
-def emit_mdl(g):
+def mdl_ports(kind, params, child):
+    """Physical ports used by the MDL loader before it resolves line endpoints."""
+    if child is not None:
+        return tuple(sum(b[0] == direction for b in child.blocks)
+                     for direction in ('Inport', 'Outport'))
+    if kind in ('Constant', 'FromWorkspace', 'From', 'Inport'):
+        return 0, 1
+    if kind in ('Outport', 'Terminator', 'Goto'):
+        return 1, 0
+    if kind == 'Scope':
+        return int(params['NumInputPorts']), 0
+    if kind == 'Demux':
+        return 1, len(params['Outputs'].strip('[]').split())
+    if kind == 'DotProduct':
+        return 2, 1
+    if kind in ('Sum', 'Product', 'Mux', 'MinMax'):
+        inputs = params['Inputs'].replace('|', '')
+        return (int(inputs) if inputs.isdigit() else len(inputs)), 1
+    return 1, 1
+
+
+def emit_mdl(g, route_top=False):
     quote=lambda s:json.dumps(s,ensure_ascii=True)
-    def system(g):
+    def system(g, route=False):
         lines=['System {','  Location [20, 60, 1200, 700]']
         for k,name,pos,pars,child in g.blocks:
-            blk=['Block {','  BlockType '+k,'  Name '+quote(name),'  Position '+str(pos)]
+            n_in, n_out = mdl_ports(k, pars, child)
+            blk=['Block {','  BlockType '+k,'  Name '+quote(name),
+                 f'  Ports [{n_in}, {n_out}]','  Position '+str(pos)]
             for key,val in pars.items():blk+=['  '+key+' '+quote(val)]
             if child is not None:blk+=['  '+line for line in system(child)]
             lines+=['  '+line for line in blk+['}']]
+        blocks = {b[1]: b for b in g.blocks}
+        def port_y(block, port, side):
+            kind, _, pos, params, child = block
+            count = mdl_ports(kind, params, child)[side]
+            return round(pos[1]+(pos[3]-pos[1])*(port-0.5)/count)
         for (s,o),dests in g.lines.items():
             line=['Line {','  SrcBlock '+quote(s),'  SrcPort '+str(o)]
+            if len(dests)>1:
+                # An MDL branch point is relative to its source port. Without
+                # an explicit trunk older readers can draw it at the canvas origin.
+                line.append('  Points [15, 0]')
             for dest,i,label in dests:
-                branch=(['Name '+quote(label)] if label else [])+['DstBlock '+quote(dest),'DstPort '+str(i)]
+                branch = ['Name '+quote(label)] if label else []
+                if route:
+                    dy = port_y(blocks[dest],i,0)-port_y(blocks[s],o,1)
+                    if dy:
+                        jog = f'0, {dy}' if len(dests)>1 else f'15, 0; 0, {dy}'
+                        branch.append('Points ['+jog+']')
+                branch += ['DstBlock '+quote(dest),'DstPort '+str(i)]
                 line+=['  '+a for a in (branch if len(dests)==1 else ['Branch {',*['  '+a for a in branch],'}'])]
             lines+=['  '+a for a in line+['}']]
         return lines+['}']
     return '\n'.join(['Model {','  Name "DroneFlight"','  Version 8.0','  SavedCharacterEncoding "UTF-8"',
        '  SolverType "Fixed-step"','  Solver "ode4"','  FixedStep "drone.step_s"','  StopTime "9"',
-       '  InitFcn "setup_flight;"','  ReturnWorkspaceOutputs on',*['  '+a for a in system(g)],'}',''])
+       '  InitFcn "setup_flight;"','  ReturnWorkspaceOutputs on',*['  '+a for a in system(g, route_top)],'}',''])
 
 if __name__=='__main__':
     g=graph()

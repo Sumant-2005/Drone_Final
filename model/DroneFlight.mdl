@@ -1,0 +1,846 @@
+Model {
+  Name "DroneFlight"
+  Version 8.0
+  SavedCharacterEncoding "UTF-8"
+  SolverType "Fixed-step"
+  Solver "FixedStepDiscrete"
+  FixedStep "df_p.step_s"
+  StopTime "9"
+  InitFcn "df_init;"
+  ReturnWorkspaceOutputs on
+  System {
+    Location [20, 60, 1200, 700]
+    Block {
+      BlockType SubSystem
+      Name "Movement command"
+      Position [20, 90, 153, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType FromWorkspace
+          Name "Forward speed command"
+          Position [25, 28, 180, 62]
+          VariableName "df_forward"
+          Interpolate "off"
+          SampleTime "df_p.step_s"
+        }
+        Block {
+          BlockType FromWorkspace
+          Name "Other mission channels"
+          Position [25, 130, 180, 164]
+          VariableName "df_aux"
+          Interpolate "off"
+          SampleTime "df_p.step_s"
+        }
+        Block {
+          BlockType Mux
+          Name "Collect commands"
+          Position [240, 30, 250, 155]
+          Inputs "2"
+        }
+        Block {
+          BlockType Outport
+          Name "commands"
+          Position [340, 80, 380, 100]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Forward speed command"
+          SrcPort 1
+          Name "Forward speed (m per s)"
+          DstBlock "Collect commands"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Other mission channels"
+          SrcPort 1
+          DstBlock "Collect commands"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Collect commands"
+          SrcPort 1
+          DstBlock "commands"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Flight controller"
+      Position [212, 90, 337, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "commands"
+          Position [25, 38, 65, 58]
+          Port "1"
+        }
+        Block {
+          BlockType Inport
+          Name "state"
+          Position [25, 108, 65, 128]
+          Port "2"
+        }
+        Block {
+          BlockType Mux
+          Name "Reference and feedback"
+          Position [130, 30, 140, 140]
+          Inputs "2"
+        }
+        Block {
+          BlockType MATLABFcn
+          Name "Velocity and height control"
+          Position [212, 48, 370, 82]
+          MATLABFcn "df_velocity(u,df_p)"
+          OutputDimensions "4"
+        }
+        Block {
+          BlockType Mux
+          Name "Demands and state"
+          Position [468, 40, 478, 145]
+          Inputs "2"
+        }
+        Block {
+          BlockType MATLABFcn
+          Name "Attitude and body rate control"
+          Position [565, 66, 723, 100]
+          MATLABFcn "df_moments(u,df_p)"
+          OutputDimensions "4"
+        }
+        Block {
+          BlockType Outport
+          Name "requested loads"
+          Position [814, 73, 854, 93]
+          Port "1"
+        }
+        Line {
+          SrcBlock "commands"
+          SrcPort 1
+          DstBlock "Reference and feedback"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "state"
+          SrcPort 1
+          Branch {
+            DstBlock "Reference and feedback"
+            DstPort 2
+          }
+          Branch {
+            DstBlock "Demands and state"
+            DstPort 2
+          }
+        }
+        Line {
+          SrcBlock "Reference and feedback"
+          SrcPort 1
+          DstBlock "Velocity and height control"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Velocity and height control"
+          SrcPort 1
+          DstBlock "Demands and state"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Demands and state"
+          SrcPort 1
+          DstBlock "Attitude and body rate control"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Attitude and body rate control"
+          SrcPort 1
+          DstBlock "requested loads"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Quad X mixer"
+      Position [393, 90, 509, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "requested loads"
+          Position [20, 75, 60, 95]
+          Port "1"
+        }
+        Block {
+          BlockType Gain
+          Name "Inverse allocation matrix"
+          Position [140, 63, 300, 110]
+          Gain "df_p.allocation"
+          Multiplication "Matrix(K*u)"
+        }
+        Block {
+          BlockType MATLABFcn
+          Name "Rotor thrust limits"
+          Position [370, 66, 528, 100]
+          MATLABFcn "df_limit(u,df_p)"
+          OutputDimensions "4"
+        }
+        Block {
+          BlockType Outport
+          Name "motor thrusts"
+          Position [560, 75, 600, 95]
+          Port "1"
+        }
+        Line {
+          SrcBlock "requested loads"
+          SrcPort 1
+          DstBlock "Inverse allocation matrix"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Inverse allocation matrix"
+          SrcPort 1
+          DstBlock "Rotor thrust limits"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Rotor thrust limits"
+          SrcPort 1
+          DstBlock "motor thrusts"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Thrust to speed"
+      Position [575, 90, 699, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "motor thrusts"
+          Position [20, 80, 60, 100]
+          Port "1"
+        }
+        Block {
+          BlockType Gain
+          Name "Inverse thrust coefficient"
+          Position [140, 66, 300, 114]
+          Gain "1/df_p.kT"
+        }
+        Block {
+          BlockType Sqrt
+          Name "Square root"
+          Position [370, 66, 473, 114]
+        }
+        Block {
+          BlockType Outport
+          Name "speed references"
+          Position [550, 80, 590, 100]
+          Port "1"
+        }
+        Line {
+          SrcBlock "motor thrusts"
+          SrcPort 1
+          DstBlock "Inverse thrust coefficient"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Inverse thrust coefficient"
+          SrcPort 1
+          DstBlock "Square root"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Square root"
+          SrcPort 1
+          DstBlock "speed references"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Rotors and body"
+      Position [763, 90, 897, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "speed references"
+          Position [25, 140, 65, 160]
+          Port "1"
+        }
+        Block {
+          BlockType UnitDelay
+          Name "Body and rotor state"
+          Position [30, 36, 158, 80]
+          InitialCondition "df_p.x0"
+          SampleTime "df_p.step_s"
+        }
+        Block {
+          BlockType Mux
+          Name "State and references"
+          Position [235, 30, 245, 180]
+          Inputs "2"
+        }
+        Block {
+          BlockType MATLABFcn
+          Name "Rigid body RK4 step"
+          Position [340, 95, 498, 129]
+          MATLABFcn "df_step(u,df_p)"
+          OutputDimensions "16"
+        }
+        Block {
+          BlockType Outport
+          Name "state"
+          Position [325, 22, 365, 42]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Body and rotor state"
+          SrcPort 1
+          Branch {
+            DstBlock "state"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "State and references"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "speed references"
+          SrcPort 1
+          DstBlock "State and references"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "State and references"
+          SrcPort 1
+          DstBlock "Rigid body RK4 step"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Rigid body RK4 step"
+          SrcPort 1
+          DstBlock "Body and rotor state"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Flight scopes"
+      Position [380, 275, 526, 333]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType From
+          Name "Read command"
+          Position [20, 25, 128, 59]
+          GotoTag "df_command"
+        }
+        Block {
+          BlockType From
+          Name "Read state"
+          Position [20, 145, 128, 179]
+          GotoTag "df_state"
+        }
+        Block {
+          BlockType MATLABFcn
+          Name "Flight measurements"
+          Position [175, 145, 333, 179]
+          MATLABFcn "df_measure(u,df_p)"
+          OutputDimensions "15"
+        }
+        Block {
+          BlockType Demux
+          Name "Command fields"
+          Position [415, 15, 425, 115]
+          Outputs "[1 1 1 1 1]"
+        }
+        Block {
+          BlockType Terminator
+          Name "Right reference"
+          Position [515, 54, 528, 67]
+        }
+        Block {
+          BlockType Terminator
+          Name "Climb reference"
+          Position [515, 74, 528, 87]
+        }
+        Block {
+          BlockType Terminator
+          Name "Yaw reference"
+          Position [515, 114, 528, 127]
+        }
+        Block {
+          BlockType Demux
+          Name "Measurement fields"
+          Position [415, 175, 425, 335]
+          Outputs "[1 1 2 3 4 4]"
+        }
+        Block {
+          BlockType ToWorkspace
+          Name "Log commandLog"
+          Position [180, 25, 295, 59]
+          VariableName "df_commandLog"
+          SaveFormat "Structure With Time"
+          MaxDataPoints "inf"
+        }
+        Block {
+          BlockType ToWorkspace
+          Name "Log measureLog"
+          Position [410, 370, 525, 404]
+          VariableName "df_measureLog"
+          SaveFormat "Structure With Time"
+          MaxDataPoints "inf"
+        }
+        Block {
+          BlockType Scope
+          Name "Forward speed - m per s"
+          Position [712, 20, 862, 74]
+          NumInputPorts "2"
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "Height - m"
+          Position [712, 102, 862, 156]
+          NumInputPorts "2"
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "North and east - m"
+          Position [713, 190, 823, 223]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "Roll pitch yaw - deg"
+          Position [713, 248, 823, 281]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "Actual rotor speeds - rpm"
+          Position [713, 306, 823, 339]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "Propeller loads - Nm"
+          Position [713, 364, 823, 397]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType From
+          Name "Read loads"
+          Position [20, 462, 128, 496]
+          GotoTag "df_loads"
+        }
+        Block {
+          BlockType ToWorkspace
+          Name "Log loadLog"
+          Position [175, 435, 290, 469]
+          VariableName "df_loadLog"
+          SaveFormat "Structure With Time"
+          MaxDataPoints "inf"
+        }
+        Block {
+          BlockType Demux
+          Name "Force and moments"
+          Position [414, 455, 424, 510]
+          Outputs "[1 3]"
+        }
+        Block {
+          BlockType Scope
+          Name "Collective thrust - N"
+          Position [715, 439, 825, 472]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType Scope
+          Name "Roll pitch yaw moments - Nm"
+          Position [715, 501, 825, 534]
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType From
+          Name "Read thrust"
+          Position [20, 595, 128, 629]
+          GotoTag "df_thrust"
+        }
+        Block {
+          BlockType ToWorkspace
+          Name "Log thrustLog"
+          Position [180, 558, 295, 592]
+          VariableName "df_thrustLog"
+          SaveFormat "Structure With Time"
+          MaxDataPoints "inf"
+        }
+        Block {
+          BlockType Demux
+          Name "Four thrust references - N channels"
+          Position [415, 590, 425, 654]
+          Outputs "4"
+        }
+        Block {
+          BlockType Scope
+          Name "Four thrust references - N"
+          Position [635, 590, 760, 660]
+          NumInputPorts "4"
+          OpenAtSimulationStart "off"
+        }
+        Block {
+          BlockType From
+          Name "Read speedRef"
+          Position [20, 756, 128, 790]
+          GotoTag "df_speedRef"
+        }
+        Block {
+          BlockType ToWorkspace
+          Name "Log refLog"
+          Position [177, 717, 292, 751]
+          VariableName "df_refLog"
+          SaveFormat "Structure With Time"
+          MaxDataPoints "inf"
+        }
+        Block {
+          BlockType Gain
+          Name "Radians per second to rpm"
+          Position [180, 805, 335, 839]
+          Gain "30/pi"
+        }
+        Block {
+          BlockType Demux
+          Name "Four speed references - rpm channels"
+          Position [415, 745, 425, 809]
+          Outputs "4"
+        }
+        Block {
+          BlockType Scope
+          Name "Four speed references - rpm"
+          Position [635, 745, 760, 815]
+          NumInputPorts "4"
+          OpenAtSimulationStart "off"
+        }
+        Line {
+          SrcBlock "Read state"
+          SrcPort 1
+          DstBlock "Flight measurements"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read command"
+          SrcPort 1
+          Branch {
+            DstBlock "Command fields"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Log commandLog"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "Command fields"
+          SrcPort 2
+          DstBlock "Right reference"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Command fields"
+          SrcPort 3
+          DstBlock "Climb reference"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Command fields"
+          SrcPort 5
+          DstBlock "Yaw reference"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Flight measurements"
+          SrcPort 1
+          Branch {
+            DstBlock "Measurement fields"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Log measureLog"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "Command fields"
+          SrcPort 1
+          Name "Command"
+          DstBlock "Forward speed - m per s"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 1
+          Name "Actual speed"
+          DstBlock "Forward speed - m per s"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Command fields"
+          SrcPort 4
+          Name "Height target"
+          DstBlock "Height - m"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 2
+          Name "Actual height"
+          DstBlock "Height - m"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 3
+          DstBlock "North and east - m"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 4
+          DstBlock "Roll pitch yaw - deg"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 5
+          DstBlock "Actual rotor speeds - rpm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measurement fields"
+          SrcPort 6
+          DstBlock "Propeller loads - Nm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read loads"
+          SrcPort 1
+          Branch {
+            DstBlock "Log loadLog"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Force and moments"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "Force and moments"
+          SrcPort 1
+          Name "Collective (N)"
+          DstBlock "Collective thrust - N"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Force and moments"
+          SrcPort 2
+          DstBlock "Roll pitch yaw moments - Nm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read thrust"
+          SrcPort 1
+          Branch {
+            DstBlock "Log thrustLog"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Four thrust references - N channels"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "Four thrust references - N channels"
+          SrcPort 1
+          Name "M1 front right"
+          DstBlock "Four thrust references - N"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Four thrust references - N channels"
+          SrcPort 2
+          Name "M2 back left"
+          DstBlock "Four thrust references - N"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Four thrust references - N channels"
+          SrcPort 3
+          Name "M3 front left"
+          DstBlock "Four thrust references - N"
+          DstPort 3
+        }
+        Line {
+          SrcBlock "Four thrust references - N channels"
+          SrcPort 4
+          Name "M4 back right"
+          DstBlock "Four thrust references - N"
+          DstPort 4
+        }
+        Line {
+          SrcBlock "Read speedRef"
+          SrcPort 1
+          Branch {
+            DstBlock "Log refLog"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Radians per second to rpm"
+            DstPort 1
+          }
+        }
+        Line {
+          SrcBlock "Radians per second to rpm"
+          SrcPort 1
+          DstBlock "Four speed references - rpm channels"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Four speed references - rpm channels"
+          SrcPort 1
+          Name "M1 front right rpm"
+          DstBlock "Four speed references - rpm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Four speed references - rpm channels"
+          SrcPort 2
+          Name "M2 back left rpm"
+          DstBlock "Four speed references - rpm"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Four speed references - rpm channels"
+          SrcPort 3
+          Name "M3 front left rpm"
+          DstBlock "Four speed references - rpm"
+          DstPort 3
+        }
+        Line {
+          SrcBlock "Four speed references - rpm channels"
+          SrcPort 4
+          Name "M4 back right rpm"
+          DstBlock "Four speed references - rpm"
+          DstPort 4
+        }
+      }
+    }
+    Block {
+      BlockType Goto
+      Name "Store command"
+      Position [100, 18, 198, 52]
+      GotoTag "df_command"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Store loads"
+      Position [285, 18, 383, 52]
+      GotoTag "df_loads"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Store thrust"
+      Position [476, 18, 574, 52]
+      GotoTag "df_thrust"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Store speedRef"
+      Position [666, 18, 764, 52]
+      GotoTag "df_speedRef"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Store state"
+      Position [905, 18, 1003, 52]
+      GotoTag "df_state"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType From
+      Name "Read state"
+      Position [60, 195, 168, 229]
+      GotoTag "df_state"
+    }
+    Line {
+      SrcBlock "Movement command"
+      SrcPort 1
+      Branch {
+        DstBlock "Flight controller"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Store command"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Flight controller"
+      SrcPort 1
+      Branch {
+        DstBlock "Quad X mixer"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Store loads"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Quad X mixer"
+      SrcPort 1
+      Branch {
+        DstBlock "Thrust to speed"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Store thrust"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Thrust to speed"
+      SrcPort 1
+      Branch {
+        DstBlock "Rotors and body"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Store speedRef"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Rotors and body"
+      SrcPort 1
+      DstBlock "Store state"
+      DstPort 1
+    }
+    Line {
+      SrcBlock "Read state"
+      SrcPort 1
+      DstBlock "Flight controller"
+      DstPort 2
+    }
+  }
+}

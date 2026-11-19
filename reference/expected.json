@@ -1,22 +1,22 @@
 {
   "demonstration": {
-    "final_north_m": 7.91536475,
+    "final_north_m": 7.88785731,
     "final_east_m": 0.0,
-    "min_height_m": 4.99873658,
-    "max_height_m": 5.00069268,
-    "final_height_m": 5.0003921,
-    "peak_body_forward_mps": 1.99782303,
-    "final_speed_mps": 0.00196783,
-    "max_ref_rpm": 5503.853944
+    "min_height_m": 4.99869595,
+    "max_height_m": 5.00069774,
+    "final_height_m": 5.00037758,
+    "peak_body_forward_mps": 1.99836097,
+    "final_speed_mps": 0.00136618,
+    "max_ref_rpm": 4808.09686081
   },
   "mission": {
-    "final_north_m": 0.00694405,
-    "final_east_m": -0.04104424,
-    "min_height_m": 4.40751222,
-    "max_height_m": 8.41248394,
-    "final_height_m": 4.99991728,
-    "peak_body_forward_mps": 1.99782303,
-    "final_speed_mps": 0.00015476,
-    "max_ref_rpm": 5631.36986271
+    "final_north_m": 0.00549371,
+    "final_east_m": -0.04400595,
+    "min_height_m": 4.41572759,
+    "max_height_m": 8.40851554,
+    "final_height_m": 4.9998964,
+    "peak_body_forward_mps": 1.99836097,
+    "final_speed_mps": 0.00020272,
+    "max_ref_rpm": 4876.90935921
   }
 }

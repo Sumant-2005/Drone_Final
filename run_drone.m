@@ -78,7 +78,8 @@ folder=fullfile(root,'results');
 if ~isfolder(folder), mkdir(folder); end
 stem=fullfile(folder,sprintf('%s_motor%d',scenario,motor));
 writetable(replay,[stem '.csv']);
-save([stem '.mat'],'speed_ref_rad_s','speed_ref_rpm','aero_load_Nm','scenario','motor');
+mass_kg=p.mass_kg;
+save([stem '.mat'],'speed_ref_rad_s','speed_ref_rpm','aero_load_Nm','scenario','motor','mass_kg');
 fprintf('Saved replay to results/%s_motor%d.csv and .mat\n',scenario,motor);
 end
 

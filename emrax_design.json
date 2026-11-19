@@ -1,0 +1,15 @@
+{
+  "Vdc": 680,
+  "fsw": 15000,
+  "Rs": 0.0167,
+  "Ld": 0.000177,
+  "Lq": 0.000183,
+  "flux": 0.0542,
+  "pole_pairs": 10,
+  "rotor_inertia": 0.0383,
+  "propeller_inertia": 0.7,
+  "continuous_phase_arms": 115,
+  "speed_limit": 5500,
+  "ramp_seconds": 6,
+  "settle_seconds": 1
+}

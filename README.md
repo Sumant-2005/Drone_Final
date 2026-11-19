@@ -1,6 +1,25 @@
 # Drone_Final
 
-An R2023a Simulink flight model for a 400 kg quad-X drone. One forward-speed command produces a collective thrust and roll, pitch and yaw moment requests. The mixer allocates these to four propellers. Each thrust becomes a rotor-speed reference. A first-order speed response and a six-degree-of-freedom rigid body close the flight loop.
+An R2023a Simulink flight model for a 300 kg quad-X drone with a separate EMRAX 228 HV motor replay. One forward-speed command produces a collective thrust and roll, pitch and yaw moment requests. The mixer allocates these to four propellers. Each thrust becomes a rotor-speed reference. A first-order speed response and a six-degree-of-freedom rigid body close the flight loop.
+
+## Run the final simulation
+
+Extract the entire project. In MATLAB R2023a, select the folder containing `run_final.m` as the Current Folder. The flight needs Simulink. The supplied EMRAX model also uses Simscape Electrical Specialized Power Systems (powergui, PMSM, current sensors and IGBTs).
+
+```matlab
+run_final
+```
+
+1. The flight starts airborne at 5 m and performs the 52 s mission. The MATLAB checker compares all four motors and the flight response with the 300 kg Python reference. Motor 1 is the front-right motor.
+2. `EMRAXMission.slx` runs that motor's speed demand and resisting propeller load through the adapted vector controller and six-switch inverter. The drive starts from rest, ramps to loaded hover over 6 s and settles for 1 s before replay starts. The switching solver uses the original 1.667 µs step. The full drive run therefore takes about 35.4 million steps. The flight model uses its own motor lag throughout. The electrical replay measures achievable tracking for the same commands.
+3. In **QuadXFlight / Flight scopes**, open **Flight response**, **Mixer inputs** or **Motor outputs**. In **EMRAXMission / Drive results**, open **Speed - rpm**, **Torque - Nm** or **Current - A peak**. These scopes include spin-up, with the mission starting at drive time 7 s. The generated report figure shows mission time from 0 to 52 s. Actual values and references are saved in `results/emrax/mission_motor1_drive.csv` and `results/emrax/mission_motor1_drive.png`. Negative CSV times cover spin-up. The report samples are 1.25 ms apart and describe the drive response envelope.
+4. The runtime checker verifies replay alignment, checks loaded hover and mission RMS speed error against a 1% hover-speed target, compares mean electromagnetic torque to the applied load within 10% at settled hover, and checks the sampled shaft speed and commanded current limits. It prints maximum transient speed error separately. The drive results are simulation estimates.
+
+### Drive parameters and verification
+
+`emrax_design.json` holds the 680 V bus, 15 kHz carrier, machine data, current/speed limits and shaft inertias. `setup_emrax.m` derives the gain values from the uploaded parameter script's design and initializes the replay. The model uses amplitude-invariant Clarke/Park transforms, mechanical rad/s for the speed PI, electrical speed times flux for q-axis back EMF, and linear sinusoidal PWM. The q-current command is limited to 115 phase A RMS expressed as 162.63 A peak. The shaft uses a 0.0383 kg·m² rotor and an **assumed 0.70 kg·m² propeller inertia**. Data for the actual propeller should replace this inertia and the static load estimate when available.
+
+The Python average-voltage drive predicts 39.78 rpm RMS tracking error over the mission. At 49 s the command changes at yaw release and the instantaneous speed error reaches 465.63 rpm. Inertia and the current limit affect how quickly the shaft can respond. Python calculations omit switching ripple. MATLAB R2023a validation of the flight and switching drive is pending. The plot in `report_figures/EMRAX_mission_reference.png` is the Python drive reference.
 
 ## Run and view the scopes
 
@@ -32,7 +51,7 @@ The 52 s mission commands forward, back, right, left, climb, descent and paired 
 
 ## Motor inputs for later replay
 
-`run_drone('demonstration',3)` selects M3 for export. The default is M1. The CSV in `results/` includes time, speed reference (rad/s and rpm), thrust reference (N), actual flight-model speed (rpm), and positive resisting aerodynamic torque (N·m). The matching MAT file holds named `timeseries` signals `speed_ref_rad_s`, `speed_ref_rpm`, and `aero_load_Nm`. The trace begins at hover speed. The aerodynamic load excludes rotor acceleration torque. The detailed EMRAX speed/current simulation and its initialization are deferred.
+`run_drone('demonstration',3)` selects M3 for export. The default is M1. The CSV in `results/` includes time, speed reference (rad/s and rpm), thrust reference (N), actual flight-model speed (rpm), and positive resisting aerodynamic torque (N·m). The matching MAT file holds named `timeseries` signals `speed_ref_rad_s`, `speed_ref_rpm`, and `aero_load_Nm`. The trace begins at hover speed. The aerodynamic load excludes rotor acceleration torque. The final entry point runs the separate electrical replay after the flight.
 
 ## Where the SLX gets its parameters
 
@@ -44,7 +63,7 @@ The earlier `df_` prefix stood for the Drone_Final project. The current diagrams
 
 ## Report inputs and units
 
-The sizing inputs come from Chapter 3, pp. 15–16 of the supplied *Design of zero emission long endurance drones*. They are 400 kg, four 1 m propellers, air density 1.225 kg/m³, thrust coefficient 0.1, gravity 9.81 m/s², and a sizing thrust of 1.1 times weight. In the propeller law, n is **revolutions per second**. RPM is 60n. The model uses:
+The sizing inputs come from Chapter 3, pp. 15–16 of the supplied *Design of zero emission long endurance drones*. The report baseline uses 400 kg. The selected aircraft design case uses 300 kg total mass. Both use four 1 m propellers, air density 1.225 kg/m³, thrust coefficient 0.1, gravity 9.81 m/s², and a sizing thrust of 1.1 times weight. In the propeller law, n is **revolutions per second**. RPM is 60n. The model uses:
 
 ```text
 T = CT × rho × D^4 × n² = kT × omega²
@@ -53,7 +72,7 @@ hover thrust per rotor = mg / 4
 sizing thrust per rotor = 1.1mg / 4
 ```
 
-| Per rotor | Level hover | Report sizing thrust |
+| Per rotor for the 400 kg comparison | Level hover | Report sizing thrust |
 |---|---:|---:|
 | Thrust | 981.00 N | 1,079.10 N |
 | Speed from the thrust law | 5,369.30 rpm | 5,631.37 rpm |
@@ -84,9 +103,7 @@ python -m pytest -q -s
 
 The tests cover report-unit conversions, ideal-power consistency, all three mixer signs, saturation, command and load traces, braking, mission return and model wiring. `reference/expected.json` records the Python response metrics used by the MATLAB runner. The Python tests also evaluate the connections and arithmetic of the generated Simulink diagrams on off-axis states and integrate the wired forward demonstration and the full 52 s mission from start to finish. These tests run in Python.
 
-In the default Python demonstration, the 2 m/s forward pulse produces a peak of 1.9978 m/s, 7.9154 m of forward travel and a final height of 5.0004 m. The complete mission ends 0.0416 m from its start. A second numerical check keeps the controller sample time fixed and uses two midpoint steps per interval for the plant. Across 49 mission checkpoints it agrees with RK4 within 0.000001 m in position and 0.002 rpm in rotor speed.
-
-A small final position error can coexist with a transient tracking error. The mission's first 10°/s yaw demand lasts 3 s. The heading is about 18.3° at release and 26.3° after the hover gap. The vehicle begins this turn within 0.02° of north. In this model a yaw-rate command provides no absolute heading target. The independent comparisons establish numerical consistency for the shared assumptions. Physical load accuracy still depends on propeller data.
+At 300 kg the Python demonstration ends 7.8879 m north. The full mission ends 0.0443 m from the initial position. Near the first yaw release, the heading reaches about 13.77° at 43 s and 20.49° at 46 s. The command is a yaw rate, so heading can continue changing as the angular rate settles. At hover, each rotor requires 4,650.0 rpm and an estimated 29.55 N·m. Maximum mission demand is 4,876.9 rpm per rotor. The 400 kg comparison peaked at 5,631.4 rpm. Its recorded results are retained in `reference/expected_400kg.json`.
 
 After a local simulation, `run_drone` checks the scope unit conversions and scenario acceptance criteria. It compares position, velocity, attitude, motor speed and thrust against `reference/checkpoints.json` at command changes and during each manoeuvre. The demonstration checks rear-pair thrust at acceleration, front-pair thrust at braking and final speed below 0.1 m/s. The mission checks that final displacement is within 0.5 m. The MATLAB scripts and models are written, not run in R2023a. Local simulation must confirm compilation, scope rendering and the numerical comparisons.
 
@@ -95,5 +112,3 @@ After a local simulation, `run_drone` checks the scope unit conversions and scen
 The ten flight, mixer and motor scopes each have a demonstration and a mission result. `report_figures/Flight_scope_reference.pdf` pairs the two scenarios on each page, and `report_figures/Flight_scope_reference_PNGs.zip` contains the 20 individual Python reference plots.
 
 For figures from your MATLAB R2023a run, use `export_scope_results` from the repository root. It runs both validated scenarios and writes 300 dpi PNGs to `results/scope_figures/demonstration/` and `results/scope_figures/mission/`. On the MATLAB desktop it also attempts a native capture of each Scope. Files beginning with `window_` are captured Scope views; the other PNGs plot the logged Simulink signals at the solver sample times. If a Scope window cannot be accessed as a graphics figure, the exporter reports it and keeps the trace figure. Use `export_scope_results(false)` for just the report plots.
-
-For the separate EMRAX drive test, `results/demonstration_motor1.mat` provides the front-right motor's mechanical speed reference (rpm or rad/s) and positive resisting aerodynamic torque (N·m). Feed the speed to the existing *outer speed reference* and the torque to the mechanical *load torque* input using the sign expected by your drive. Start the drive at the first hover speed with the corresponding load/current equilibrium, or allow it to settle there before replay. A drive with rotor/propeller inertia already included uses the aerodynamic load directly. The flight rotor rpm is a first-order actuator prediction. The measured EMRAX rotor speed, current and electromagnetic torque must come from the separate drive simulation.

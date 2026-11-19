@@ -1,5 +1,5 @@
 {
-  "mass_kg": 400, "gravity_m_s2": 9.81, "air_density_kg_m3": 1.225,
+  "mass_kg": 300, "gravity_m_s2": 9.81, "air_density_kg_m3": 1.225,
   "diameter_m": 1.0, "thrust_coefficient": 0.1, "rotors": 4,
   "sizing_weight_factor": 1.1, "report_motor_power_W": 20000,
   "report_rounded_speed_rad_s": 600, "report_peak_torque_factor": 1.5,

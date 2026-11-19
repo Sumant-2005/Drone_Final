@@ -1,4 +1,4 @@
-function [out,replay] = run_drone(scenario,motor)
+function [out,replay,scopeData] = run_drone(scenario,motor)
 % Build/open the R2023a flight model, simulate, compare and save replay inputs.
 if nargin < 1, scenario='demonstration'; end
 if nargin < 2, motor=1; end
@@ -62,6 +62,10 @@ for k=1:numel(got)
 end
 assert(all(abs(got-want)<=tol),'Flight response differs from the Python reference.');
 check_flight_response(root,scenario,p,time,command,state,T,w,y);
+if nargout >= 3
+    scopeData=struct('time',time,'command',command,'measurements',y, ...
+        'requestedLoads',u,'thrust',T,'speedRef',w);
+end
 % Columns 8:11 are actual rotor rpm and 12:15 are positive resisting loads.
 rpm=w(:,motor)*30/pi;
 q=y(:,11+motor);

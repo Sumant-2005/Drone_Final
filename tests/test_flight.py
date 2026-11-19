@@ -119,3 +119,55 @@ def test_model_sources_agree_and_have_connected_inputs():
             else: inputs=1
             assert all((name,i+1) in used for i in range(inputs))
     inspect(d)
+    # Check routing independently of display labels: these five signals feed
+    # the controller feedback, scopes and the motor replay.
+    root_ports = {'Flight command':'flight_command','Flight controller':'thrust_and_moments',
+                  'Motor mixer':'motor_thrust','Thrust to speed':'motor_speed_reference',
+                  'Drone dynamics':'flight_state'}
+    blocks={b[1]:b for b in d.blocks}
+    for source,tag in root_ports.items():
+        sinks=[blocks[target] for target,_,_ in d.lines[source,1] if blocks[target][0]=='Goto']
+        assert len(sinks)==1 and sinks[0][3]['GotoTag']==tag
+    views=blocks['Flight scopes'][-1]
+    expected_tags={'Flight response':{1:'flight_command'},'Mixer inputs':{1:'thrust_and_moments'},
+                   'Motor outputs':{1:'motor_thrust',2:'motor_speed_reference'},
+                   'Flight measurements':{1:'flight_state'}}
+    for b in views.blocks:
+        if b[0]=='From':
+            for dest,port,_ in views.lines[b[1],1]:
+                assert expected_tags[dest].pop(port)==b[3]['GotoTag']
+    assert all(not ports for ports in expected_tags.values())
+    for generated in (emit_builder(d),emit_mdl(d)):
+        assert 'df_' not in generated and 'setup_flight' in generated
+
+
+def test_mission_with_alternate_integrator():
+    # Preserve the controller sampling rate. Only change the plant integration:
+    # two explicit midpoint substeps in place of the model's single RK4 step.
+    f=Flight()
+    profile=np.array(f.p['mission'],dtype=float)
+    profile[:,4]=np.deg2rad(profile[:,4])
+    golden=json.loads((ROOT/'reference'/'checkpoints.json').read_text())['mission']
+    checkpoints={round(t/f.dt):j for j,t in enumerate(golden['time_s'])}
+    height=f.p['initial_height_m']
+    state=np.r_[0.,0.,-height,np.zeros(9),np.full(4,f.hover)]
+    substep=f.dt/2
+    position_error=0.
+    rpm_error=0.
+    last=round(profile[-1,0]/f.dt)
+    for n in range(last+1):
+        command=profile[np.searchsorted(profile[:,0],n*f.dt,side='right')-1,1:]
+        load=f.control(state,command,height)
+        reference=np.sqrt(f.allocate(load)/f.kt)
+        if n in checkpoints:
+            j=checkpoints[n]
+            position_error=max(position_error,np.linalg.norm(state[:3]-golden['position'][j]))
+            rpm_error=max(rpm_error,np.max(abs(state[12:]*30/pi-golden['rotor_rpm'][j])))
+        if n<last:
+            height+=command[2]*f.dt
+            for _ in range(2):
+                midpoint=state+substep/2*f.rhs(state,reference)
+                state+=substep*f.rhs(midpoint,reference)
+    assert position_error<.01 and rpm_error<1.
+    print(f'Alternate integration, {len(checkpoints)} mission checkpoints: max position difference '
+          f'{position_error:.7f} m | max rotor difference {rpm_error:.5f} rpm | PASS')

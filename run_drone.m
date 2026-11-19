@@ -5,24 +5,24 @@ if nargin < 2, motor=1; end
 scenario=validatestring(scenario,{'demonstration','mission'});
 validateattributes(motor,{'numeric'},{'scalar','real','integer','>=',1,'<=',4});
 root=fileparts(mfilename('fullpath'));
-mdl='DroneFlightBlocks';
+mdl='QuadXFlight';
 file=fullfile(root,'generated',[mdl '.slx']);
 if bdIsLoaded(mdl)
     opened=get_param(mdl,'FileName');
-    assert(strcmp(opened,file),'A different DroneFlightBlocks model is open. Close it before running this project.');
+    assert(strcmp(opened,file),'A different QuadXFlight model is open. Close it before running this project.');
 elseif isfile(file)
     load_system(file);
 else
-    df_init(scenario);
+    setup_flight(scenario);
     build_drone();
 end
-p=df_parameters();
+p=drone_parameters();
 profile=p.(scenario);
-df_init(scenario);
+setup_flight(scenario);
 % Record signals at existing block ports for comparisons and replay.
 % All user-facing outputs go to ordinary Scopes.
-paths={'Movement command','Flight controller','Quad X mixer','Thrust to speed', ...
-    'Rotors and body','Flight scopes/Flight instruments'};
+paths={'Flight command','Flight controller','Motor mixer','Thrust to speed', ...
+    'Drone dynamics','Flight scopes/Flight measurements'};
 keys={'command','loads','thrust','speedRef','state','measurements'};
 for k=1:numel(paths)
     ports=get_param([mdl '/' paths{k}],'PortHandles');
@@ -31,7 +31,7 @@ for k=1:numel(paths)
 end
 set_param(mdl,'SignalLogging','on','SignalLoggingName','logsout');
 % Leave the selected scenario active for the toolbar Run button, too.
-set_param(mdl,'InitFcn',sprintf('df_init(''%s'');',scenario),'StopTime',num2str(profile(end,1)));
+set_param(mdl,'InitFcn',sprintf('setup_flight(''%s'');',scenario),'StopTime',num2str(profile(end,1)));
 open_system(mdl);
 out=sim(mdl,'ReturnWorkspaceOutputs','on');
 open_system([mdl '/Flight scopes']);

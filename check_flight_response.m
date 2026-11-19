@@ -21,6 +21,18 @@ if strcmp(scenario,'demonstration')
     check('Final speed after braking (m/s)',norm(x(end,4:6)),0,0.1);
 else
     check('Mission return distance (m)',norm(x(end,1:3)-p.x0(1:3).'),0,0.5);
+    % Document the achieved yaw even when the endpoint position check passes.
+    turns=find(profile(1:end-1,5)~=0);
+    for j=turns(:).'
+        start=round(profile(j,1)/p.step_s)+1;
+        release=round(profile(j+1,1)/p.step_s)+1;
+        gapEnd=round(profile(min(j+2,size(profile,1)),1)/p.step_s)+1;
+        target=profile(j,5)*(profile(j+1,1)-profile(j,1));
+        turn=(x(release,9)-x(start,9))*180/pi;
+        afterGap=(x(gapEnd,9)-x(start,9))*180/pi;
+        fprintf('Yaw at %.1f s: command integral %.2f deg | at release %.2f deg | after gap %.2f deg\n', ...
+            time(start),target,turn,afterGap);
+    end
 end
 gold=jsondecode(fileread(fullfile(root,'reference','checkpoints.json')));
 gold=gold.(scenario);

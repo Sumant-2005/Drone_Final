@@ -4,15 +4,15 @@ Model {
   SavedCharacterEncoding "UTF-8"
   SolverType "Fixed-step"
   Solver "ode4"
-  FixedStep "df_p.step_s"
+  FixedStep "drone.step_s"
   StopTime "9"
-  InitFcn "df_init;"
+  InitFcn "setup_flight;"
   ReturnWorkspaceOutputs on
   System {
     Location [20, 60, 1200, 700]
     Block {
       BlockType SubSystem
-      Name "Movement command"
+      Name "Flight command"
       Position [20, 90, 153, 154]
       System {
         Location [20, 60, 1200, 700]
@@ -20,19 +20,19 @@ Model {
           BlockType FromWorkspace
           Name "Forward speed command"
           Position [25, 28, 180, 62]
-          VariableName "df_forward"
+          VariableName "forward_command"
           Interpolate "off"
           OutputAfterFinalValue "Holding final value"
-          SampleTime "df_p.step_s"
+          SampleTime "drone.step_s"
         }
         Block {
           BlockType FromWorkspace
-          Name "Other mission channels"
+          Name "Right climb height and yaw"
           Position [25, 130, 180, 164]
-          VariableName "df_aux"
+          VariableName "mission_commands"
           Interpolate "off"
           OutputAfterFinalValue "Holding final value"
-          SampleTime "df_p.step_s"
+          SampleTime "drone.step_s"
         }
         Block {
           BlockType Mux
@@ -54,7 +54,7 @@ Model {
           DstPort 1
         }
         Line {
-          SrcBlock "Other mission channels"
+          SrcBlock "Right climb height and yaw"
           SrcPort 1
           DstBlock "Collect commands"
           DstPort 2
@@ -81,7 +81,7 @@ Model {
         }
         Block {
           BlockType Inport
-          Name "Sampled state"
+          Name "Measured state"
           Position [30, 372, 70, 392]
           Port "2"
         }
@@ -335,13 +335,13 @@ Model {
               BlockType Gain
               Name "Velocity gain"
               Position [630, 40, 765, 78]
-              Gain "df_p.velocity_gain_per_s"
+              Gain "drone.velocity_gain_per_s"
             }
             Block {
               BlockType Gain
               Name "Drag feedforward"
               Position [630, 148, 765, 186]
-              Gain "df_p.linear_drag_N_per_m_s/df_p.mass_kg"
+              Gain "drone.linear_drag_N_per_m_s/drone.mass_kg"
             }
             Block {
               BlockType Sum
@@ -375,7 +375,7 @@ Model {
                   BlockType Gain
                   Name "Relative to limit"
                   Position [630, 148, 765, 186]
-                  Gain "1/df_p.max_accel_m_s2"
+                  Gain "1/drone.max_accel_m_s2"
                 }
                 Block {
                   BlockType Saturate
@@ -460,7 +460,7 @@ Model {
                   BlockType Gain
                   Name "Divide by gravity"
                   Position [230, 40, 365, 78]
-                  Gain "1/df_p.gravity_m_s2"
+                  Gain "1/drone.gravity_m_s2"
                 }
                 Block {
                   BlockType Trigonometry
@@ -627,7 +627,7 @@ Model {
               BlockType Gain
               Name "Height gain"
               Position [430, 148, 565, 186]
-              Gain "df_p.height_gain_per_s"
+              Gain "drone.height_gain_per_s"
             }
             Block {
               BlockType Sum
@@ -645,19 +645,19 @@ Model {
               BlockType Gain
               Name "Climb gain times mass"
               Position [1030, 148, 1165, 186]
-              Gain "df_p.mass_kg*df_p.climb_gain_per_s"
+              Gain "drone.mass_kg*drone.climb_gain_per_s"
             }
             Block {
               BlockType Gain
               Name "Vertical drag feedforward"
               Position [1030, 40, 1165, 78]
-              Gain "df_p.linear_drag_N_per_m_s"
+              Gain "drone.linear_drag_N_per_m_s"
             }
             Block {
               BlockType Constant
               Name "Weight"
               Position [1030, 256, 1165, 294]
-              Value "df_p.mass_kg*df_p.gravity_m_s2"
+              Value "drone.mass_kg*drone.gravity_m_s2"
             }
             Block {
               BlockType Sum
@@ -864,7 +864,7 @@ Model {
               BlockType Gain
               Name "Angle gain"
               Position [430, 40, 565, 78]
-              Gain "df_p.tilt_gain_per_s"
+              Gain "drone.tilt_gain_per_s"
             }
             Block {
               BlockType Mux
@@ -882,14 +882,14 @@ Model {
               BlockType Gain
               Name "Inertia times rate gain"
               Position [1030, 148, 1165, 186]
-              Gain "diag(df_p.inertia_kg_m2(:).*df_p.rate_gain_per_s(:))"
+              Gain "diag(drone.inertia_kg_m2(:).*drone.rate_gain_per_s(:))"
               Multiplication "Matrix(K*u)"
             }
             Block {
               BlockType Gain
               Name "Rotational drag"
               Position [1030, 364, 1165, 402]
-              Gain "df_p.angular_drag_Nm_per_rad_s"
+              Gain "drone.angular_drag_Nm_per_rad_s"
             }
             Block {
               BlockType Sum
@@ -996,7 +996,7 @@ Model {
           DstPort 1
         }
         Line {
-          SrcBlock "Sampled state"
+          SrcBlock "Measured state"
           SrcPort 1
           DstBlock "Feedback channels"
           DstPort 1
@@ -1107,7 +1107,7 @@ Model {
     }
     Block {
       BlockType SubSystem
-      Name "Quad X mixer"
+      Name "Motor mixer"
       Position [393, 90, 509, 154]
       System {
         Location [20, 60, 1200, 700]
@@ -1119,9 +1119,9 @@ Model {
         }
         Block {
           BlockType Gain
-          Name "Inverse allocation matrix"
+          Name "Mix thrust and moments"
           Position [140, 63, 300, 110]
-          Gain "df_p.allocation"
+          Gain "drone.allocation"
           Multiplication "Matrix(K*u)"
         }
         Block {
@@ -1148,7 +1148,7 @@ Model {
               Name "Available collective"
               Position [430, 256, 565, 294]
               LowerLimit "0"
-              UpperLimit "df_p.max_thrust"
+              UpperLimit "drone.max_thrust"
             }
             Block {
               BlockType Sum
@@ -1158,7 +1158,7 @@ Model {
             }
             Block {
               BlockType SubSystem
-              Name "Available moment authority"
+              Name "Scale to motor limits"
               Position [630, 148, 775, 192]
               System {
                 Location [20, 60, 1200, 700]
@@ -1198,7 +1198,7 @@ Model {
                   BlockType Constant
                   Name "Maximum thrust"
                   Position [230, 472, 365, 510]
-                  Value "df_p.max_thrust"
+                  Value "drone.max_thrust"
                 }
                 Block {
                   BlockType Sum
@@ -1361,7 +1361,7 @@ Model {
               Name "Thrust bounds"
               Position [1230, 148, 1365, 186]
               LowerLimit "0"
-              UpperLimit "df_p.max_thrust"
+              UpperLimit "drone.max_thrust"
             }
             Block {
               BlockType Outport
@@ -1397,7 +1397,7 @@ Model {
               SrcBlock "Differential thrusts"
               SrcPort 1
               Branch {
-                DstBlock "Available moment authority"
+                DstBlock "Scale to motor limits"
                 DstPort 1
               }
               Branch {
@@ -1409,7 +1409,7 @@ Model {
               SrcBlock "Available collective"
               SrcPort 1
               Branch {
-                DstBlock "Available moment authority"
+                DstBlock "Scale to motor limits"
                 DstPort 2
               }
               Branch {
@@ -1418,7 +1418,7 @@ Model {
               }
             }
             Line {
-              SrcBlock "Available moment authority"
+              SrcBlock "Scale to motor limits"
               SrcPort 1
               DstBlock "Scale differences"
               DstPort 2
@@ -1452,11 +1452,11 @@ Model {
         Line {
           SrcBlock "requested loads"
           SrcPort 1
-          DstBlock "Inverse allocation matrix"
+          DstBlock "Mix thrust and moments"
           DstPort 1
         }
         Line {
-          SrcBlock "Inverse allocation matrix"
+          SrcBlock "Mix thrust and moments"
           SrcPort 1
           DstBlock "Rotor thrust limits"
           DstPort 1
@@ -1485,7 +1485,7 @@ Model {
           BlockType Gain
           Name "Inverse thrust coefficient"
           Position [140, 66, 300, 114]
-          Gain "1/df_p.kT"
+          Gain "1/drone.kT"
         }
         Block {
           BlockType Sqrt
@@ -1520,7 +1520,7 @@ Model {
     }
     Block {
       BlockType SubSystem
-      Name "Rotors and body"
+      Name "Drone dynamics"
       Position [763, 90, 897, 154]
       System {
         Location [20, 60, 1200, 700]
@@ -1532,7 +1532,7 @@ Model {
         }
         Block {
           BlockType SubSystem
-          Name "Ideal rotor dynamics"
+          Name "Motor response"
           Position [230, 40, 375, 84]
           System {
             Location [20, 60, 1200, 700]
@@ -1546,7 +1546,7 @@ Model {
               BlockType Integrator
               Name "Rotor speed"
               Position [620, 68, 735, 116]
-              InitialCondition "df_p.x0(13:16)"
+              InitialCondition "drone.x0(13:16)"
             }
             Block {
               BlockType Sum
@@ -1558,7 +1558,7 @@ Model {
               BlockType Gain
               Name "Inverse motor time constant"
               Position [430, 148, 565, 186]
-              Gain "1/df_p.speed_lag_s"
+              Gain "1/drone.speed_lag_s"
             }
             Block {
               BlockType Outport
@@ -1576,13 +1576,13 @@ Model {
               BlockType Gain
               Name "Propeller thrust"
               Position [1030, 148, 1165, 186]
-              Gain "df_p.kT"
+              Gain "drone.kT"
             }
             Block {
               BlockType Gain
               Name "Thrust to body loads"
               Position [1230, 148, 1365, 186]
-              Gain "df_p.effectiveness"
+              Gain "drone.effectiveness"
               Multiplication "Matrix(K*u)"
             }
             Block {
@@ -1659,25 +1659,25 @@ Model {
           BlockType Integrator
           Name "Position"
           Position [1000, 40, 1110, 82]
-          InitialCondition "df_p.x0(1:3)"
+          InitialCondition "drone.x0(1:3)"
         }
         Block {
           BlockType Integrator
           Name "Velocity"
           Position [1000, 148, 1110, 190]
-          InitialCondition "df_p.x0(4:6)"
+          InitialCondition "drone.x0(4:6)"
         }
         Block {
           BlockType Integrator
           Name "Euler angles"
           Position [1000, 256, 1110, 298]
-          InitialCondition "df_p.x0(7:9)"
+          InitialCondition "drone.x0(7:9)"
         }
         Block {
           BlockType Integrator
           Name "Body rates"
           Position [1000, 364, 1110, 406]
-          InitialCondition "df_p.x0(10:12)"
+          InitialCondition "drone.x0(10:12)"
         }
         Block {
           BlockType SubSystem
@@ -2089,7 +2089,7 @@ Model {
               BlockType Gain
               Name "Linear drag"
               Position [430, 364, 565, 402]
-              Gain "df_p.linear_drag_N_per_m_s"
+              Gain "drone.linear_drag_N_per_m_s"
             }
             Block {
               BlockType Sum
@@ -2101,13 +2101,13 @@ Model {
               BlockType Gain
               Name "Force to acceleration"
               Position [830, 148, 965, 186]
-              Gain "1/df_p.mass_kg"
+              Gain "1/drone.mass_kg"
             }
             Block {
               BlockType Constant
               Name "NED gravity"
               Position [830, 40, 965, 78]
-              Value "[0;0;df_p.gravity_m_s2]"
+              Value "[0;0;drone.gravity_m_s2]"
             }
             Block {
               BlockType Sum
@@ -2536,14 +2536,14 @@ Model {
               BlockType Gain
               Name "Gyroscopic moment"
               Position [830, 256, 965, 294]
-              Gain "df_p.gyro_gain"
+              Gain "drone.gyro_gain"
               Multiplication "Matrix(K*u)"
             }
             Block {
               BlockType Gain
               Name "Angular drag"
               Position [830, 364, 965, 402]
-              Gain "df_p.angular_drag_Nm_per_rad_s"
+              Gain "drone.angular_drag_Nm_per_rad_s"
             }
             Block {
               BlockType Sum
@@ -2555,7 +2555,7 @@ Model {
               BlockType Gain
               Name "Inverse inertia"
               Position [1230, 148, 1365, 186]
-              Gain "diag(1./df_p.inertia_kg_m2(:))"
+              Gain "diag(1./drone.inertia_kg_m2(:))"
               Multiplication "Matrix(K*u)"
             }
             Block {
@@ -2678,22 +2678,22 @@ Model {
           BlockType ZeroOrderHold
           Name "Flight computer sample"
           Position [1430, 148, 1565, 186]
-          SampleTime "df_p.step_s"
+          SampleTime "drone.step_s"
         }
         Block {
           BlockType Outport
-          Name "Sampled state"
+          Name "Measured state"
           Position [1630, 156, 1670, 176]
           Port "1"
         }
         Line {
           SrcBlock "Speed references"
           SrcPort 1
-          DstBlock "Ideal rotor dynamics"
+          DstBlock "Motor response"
           DstPort 1
         }
         Line {
-          SrcBlock "Ideal rotor dynamics"
+          SrcBlock "Motor response"
           SrcPort 2
           DstBlock "Force and moments"
           DstPort 1
@@ -2783,7 +2783,7 @@ Model {
           DstPort 1
         }
         Line {
-          SrcBlock "Ideal rotor dynamics"
+          SrcBlock "Motor response"
           SrcPort 1
           DstBlock "Combine flight state"
           DstPort 5
@@ -2797,7 +2797,7 @@ Model {
         Line {
           SrcBlock "Flight computer sample"
           SrcPort 1
-          DstBlock "Sampled state"
+          DstBlock "Measured state"
           DstPort 1
         }
       }
@@ -3188,7 +3188,7 @@ Model {
         }
         Block {
           BlockType SubSystem
-          Name "Flight instruments"
+          Name "Flight measurements"
           Position [165, 109, 303, 157]
           System {
             Location [20, 60, 1200, 700]
@@ -3458,7 +3458,7 @@ Model {
               BlockType Gain
               Name "Aerodynamic torque"
               Position [630, 472, 765, 510]
-              Gain "df_p.kQ"
+              Gain "drone.kQ"
             }
             Block {
               BlockType Mux
@@ -3606,66 +3606,66 @@ Model {
         }
         Block {
           BlockType From
-          Name "Read command"
-          Position [18, 40, 126, 74]
-          GotoTag "df_command"
+          Name "Read flight command"
+          Position [18, 40, 154, 74]
+          GotoTag "flight_command"
         }
         Block {
           BlockType From
-          Name "Read state"
-          Position [18, 115, 126, 149]
-          GotoTag "df_state"
+          Name "Read flight state"
+          Position [18, 115, 154, 149]
+          GotoTag "flight_state"
         }
         Block {
           BlockType From
-          Name "Read loads"
-          Position [18, 170, 126, 204]
-          GotoTag "df_loads"
+          Name "Read thrust and moments"
+          Position [18, 170, 154, 204]
+          GotoTag "thrust_and_moments"
         }
         Block {
           BlockType From
-          Name "Read thrust"
-          Position [18, 276, 126, 310]
-          GotoTag "df_thrust"
+          Name "Read motor thrust"
+          Position [18, 276, 154, 310]
+          GotoTag "motor_thrust"
         }
         Block {
           BlockType From
-          Name "Read speedRef"
-          Position [18, 365, 126, 399]
-          GotoTag "df_speedRef"
+          Name "Read motor speed reference"
+          Position [18, 365, 154, 399]
+          GotoTag "motor_speed_reference"
         }
         Line {
-          SrcBlock "Read command"
+          SrcBlock "Read flight command"
           SrcPort 1
           DstBlock "Flight response"
           DstPort 1
         }
         Line {
-          SrcBlock "Read state"
+          SrcBlock "Read flight state"
           SrcPort 1
-          DstBlock "Flight instruments"
+          DstBlock "Flight measurements"
           DstPort 1
         }
         Line {
-          SrcBlock "Read loads"
+          SrcBlock "Read thrust and moments"
           SrcPort 1
           DstBlock "Mixer inputs"
           DstPort 1
         }
         Line {
-          SrcBlock "Read thrust"
+          SrcBlock "Read motor thrust"
           SrcPort 1
           DstBlock "Motor outputs"
           DstPort 1
         }
         Line {
-          SrcBlock "Read speedRef"
+          SrcBlock "Read motor speed reference"
           SrcPort 1
           DstBlock "Motor outputs"
           DstPort 2
         }
         Line {
-          SrcBlock "Flight instruments"
+          SrcBlock "Flight measurements"
           SrcPort 1
           Branch {
             DstBlock "Flight response"
@@ -3680,54 +3680,54 @@ Model {
     }
     Block {
       BlockType Goto
-      Name "Store command"
-      Position [100, 18, 198, 52]
-      GotoTag "df_command"
+      Name "Send flight command"
+      Position [100, 18, 244, 52]
+      GotoTag "flight_command"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
-      Name "Store loads"
-      Position [285, 18, 383, 52]
-      GotoTag "df_loads"
+      Name "Send thrust and moments"
+      Position [285, 18, 429, 52]
+      GotoTag "thrust_and_moments"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
-      Name "Store thrust"
-      Position [476, 18, 574, 52]
-      GotoTag "df_thrust"
+      Name "Send motor thrust"
+      Position [476, 18, 620, 52]
+      GotoTag "motor_thrust"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
-      Name "Store speedRef"
-      Position [666, 18, 764, 52]
-      GotoTag "df_speedRef"
+      Name "Send motor speed reference"
+      Position [666, 18, 810, 52]
+      GotoTag "motor_speed_reference"
       TagVisibility "global"
     }
     Block {
       BlockType Goto
-      Name "Store state"
-      Position [905, 18, 1003, 52]
-      GotoTag "df_state"
+      Name "Send flight state"
+      Position [905, 18, 1049, 52]
+      GotoTag "flight_state"
       TagVisibility "global"
     }
     Block {
       BlockType From
-      Name "Read state"
-      Position [60, 195, 168, 229]
-      GotoTag "df_state"
+      Name "Read flight state"
+      Position [60, 195, 196, 229]
+      GotoTag "flight_state"
     }
     Line {
-      SrcBlock "Movement command"
+      SrcBlock "Flight command"
       SrcPort 1
       Branch {
         DstBlock "Flight controller"
         DstPort 1
       }
       Branch {
-        DstBlock "Store command"
+        DstBlock "Send flight command"
         DstPort 1
       }
     }
@@ -3735,23 +3735,23 @@ Model {
       SrcBlock "Flight controller"
       SrcPort 1
       Branch {
-        DstBlock "Quad X mixer"
+        DstBlock "Motor mixer"
         DstPort 1
       }
       Branch {
-        DstBlock "Store loads"
+        DstBlock "Send thrust and moments"
         DstPort 1
       }
     }
     Line {
-      SrcBlock "Quad X mixer"
+      SrcBlock "Motor mixer"
       SrcPort 1
       Branch {
         DstBlock "Thrust to speed"
         DstPort 1
       }
       Branch {
-        DstBlock "Store thrust"
+        DstBlock "Send motor thrust"
         DstPort 1
       }
     }
@@ -3759,22 +3759,22 @@ Model {
       SrcBlock "Thrust to speed"
       SrcPort 1
       Branch {
-        DstBlock "Rotors and body"
+        DstBlock "Drone dynamics"
         DstPort 1
       }
       Branch {
-        DstBlock "Store speedRef"
+        DstBlock "Send motor speed reference"
         DstPort 1
       }
     }
     Line {
-      SrcBlock "Rotors and body"
+      SrcBlock "Drone dynamics"
       SrcPort 1
-      DstBlock "Store state"
+      DstBlock "Send flight state"
       DstPort 1
     }
     Line {
-      SrcBlock "Read state"
+      SrcBlock "Read flight state"
       SrcPort 1
       DstBlock "Flight controller"
       DstPort 2

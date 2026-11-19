@@ -19,6 +19,10 @@ LIB = {
     'Terminator':'simulink/Sinks/Terminator','Goto':'simulink/Signal Routing/Goto','From':'simulink/Signal Routing/From',
 }
 
+# Routing labels on the diagram describe the signal carried by each wire.
+TAGS = {'command':'flight_command', 'loads':'thrust_and_moments',
+        'thrust':'motor_thrust', 'speedRef':'motor_speed_reference', 'state':'flight_state'}
+
 class Diagram:
     def __init__(self):
         self.blocks=[]; self.lines=defaultdict(list)
@@ -91,11 +95,14 @@ class Diagram:
         return self.op('Saturate',name,col,row,[signal],LowerLimit=lo,UpperLimit=hi)
 
     def tap(self,src,tag,x,y):
-        self.add('Goto','Store '+tag,x,y,98,GotoTag='df_'+tag,TagVisibility='global')
-        self.wire(src,'Store '+tag)
+        label=TAGS[tag]
+        name='Send '+label.replace('_',' ')
+        self.add('Goto',name,x,y,144,GotoTag=label,TagVisibility='global')
+        self.wire(src,name)
 
     def read(self,tag,x,y):
-        return self.add('From','Read '+tag,x,y,108,GotoTag='df_'+tag)
+        label=TAGS[tag]
+        return self.add('From','Read '+label.replace('_',' '),x,y,136,GotoTag=label)
 
     def io(self,kind,name,x,y,port=1):
         return self.add(kind,name,x,y,40,20,Port=str(port))
@@ -103,46 +110,46 @@ class Diagram:
 
 def graph():
     d=Diagram()
-    cmd=d.add('SubSystem','Movement command',20,90,133,64)
+    cmd=d.add('SubSystem','Flight command',20,90,133,64)
     ctrl=d.add('SubSystem','Flight controller',212,90,125,64)
-    alloc=d.add('SubSystem','Quad X mixer',393,90,116,64)
+    alloc=d.add('SubSystem','Motor mixer',393,90,116,64)
     conv=d.add('SubSystem','Thrust to speed',575,90,124,64)
-    plant=d.add('SubSystem','Rotors and body',763,90,134,64)
+    plant=d.add('SubSystem','Drone dynamics',763,90,134,64)
     scopes=d.add('SubSystem','Flight scopes',380,275,146,58)
-    for left,right in [('Movement command','Flight controller'),('Flight controller','Quad X mixer'),('Quad X mixer','Thrust to speed'),('Thrust to speed','Rotors and body')]:
+    for left,right in [('Flight command','Flight controller'),('Flight controller','Motor mixer'),('Motor mixer','Thrust to speed'),('Thrust to speed','Drone dynamics')]:
         d.wire(left,right)
-    for src,tag,x in [('Movement command','command',100),('Flight controller','loads',285),('Quad X mixer','thrust',476),('Thrust to speed','speedRef',666),('Rotors and body','state',905)]:
+    for src,tag,x in [('Flight command','command',100),('Flight controller','loads',285),('Motor mixer','thrust',476),('Thrust to speed','speedRef',666),('Drone dynamics','state',905)]:
         d.tap(src,tag,x,18)
     fb=d.read('state',60,195);d.wire(fb,'Flight controller',2)
-    cmd.add('FromWorkspace','Forward speed command',25,28,155,VariableName='df_forward',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='df_p.step_s')
-    cmd.add('FromWorkspace','Other mission channels',25,130,155,VariableName='df_aux',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='df_p.step_s')
+    cmd.add('FromWorkspace','Forward speed command',25,28,155,VariableName='forward_command',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='drone.step_s')
+    cmd.add('FromWorkspace','Right climb height and yaw',25,130,155,VariableName='mission_commands',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='drone.step_s')
     cmd.add('Mux','Collect commands',240,30,10,125,Inputs='2')
     cmd.io('Outport','commands',340,80)
     cmd.wire('Forward speed command','Collect commands',label='Forward speed (m per s)')
-    cmd.wire('Other mission channels','Collect commands',2)
+    cmd.wire('Right climb height and yaw','Collect commands',2)
     cmd.wire('Collect commands','commands')
     equations.controller(ctrl)
     alloc.io('Inport','requested loads',20,75)
-    alloc.add('Gain','Inverse allocation matrix',140,63,160,47,Gain='df_p.allocation',Multiplication='Matrix(K*u)')
+    alloc.add('Gain','Mix thrust and moments',140,63,160,47,Gain='drone.allocation',Multiplication='Matrix(K*u)')
     equations.allocation_limit(alloc.add('SubSystem','Rotor thrust limits',370,63,135,47))
     alloc.io('Outport','motor thrusts',560,75)
-    alloc.wire('requested loads','Inverse allocation matrix');alloc.wire('Inverse allocation matrix','Rotor thrust limits');alloc.wire('Rotor thrust limits','motor thrusts')
-    conv.io('Inport','motor thrusts',20,80);conv.add('Gain','Inverse thrust coefficient',140,66,160,48,Gain='1/df_p.kT')
+    alloc.wire('requested loads','Mix thrust and moments');alloc.wire('Mix thrust and moments','Rotor thrust limits');alloc.wire('Rotor thrust limits','motor thrusts')
+    conv.io('Inport','motor thrusts',20,80);conv.add('Gain','Inverse thrust coefficient',140,66,160,48,Gain='1/drone.kT')
     conv.add('Sqrt','Square root',370,66,103,48);conv.io('Outport','speed references',550,80)
     conv.wire('motor thrusts','Inverse thrust coefficient');conv.wire('Inverse thrust coefficient','Square root');conv.wire('Square root','speed references')
     equations.plant(plant)
     view=scopes.add('SubSystem','Flight response',385,40,154,64)
     mixview=scopes.add('SubSystem','Mixer inputs',385,162,154,50)
     motorview=scopes.add('SubSystem','Motor outputs',385,282,154,64)
-    instr=scopes.add('SubSystem','Flight instruments',165,109,138,48)
+    instr=scopes.add('SubSystem','Flight measurements',165,109,138,48)
     equations.instruments(instr)
-    for tag,y,dest,idx in [('command',40,'Flight response',1),('state',115,'Flight instruments',1),
+    for tag,y,dest,idx in [('command',40,'Flight response',1),('state',115,'Flight measurements',1),
                             ('loads',170,'Mixer inputs',1),('thrust',276,'Motor outputs',1),
                             ('speedRef',365,'Motor outputs',2)]:
         source=scopes.read(tag,18,y)
         scopes.wire(source,dest,idx)
-    scopes.wire('Flight instruments','Flight response',2)
-    scopes.wire('Flight instruments','Motor outputs',3)
+    scopes.wire('Flight measurements','Flight response',2)
+    scopes.wire('Flight measurements','Motor outputs',3)
 
     def scope(g,name,col,row,signals,labels=()):
         x,y=30+col*200,40+row*108
@@ -180,12 +187,12 @@ def matlab_text(text):
 
 def emit_builder(g):
     lines=['function build_drone()', '% Generated by model/generate.py. Run through run_drone from the repository root.',
-           "mdl = 'DroneFlightBlocks';","folder = fullfile(fileparts(mfilename('fullpath')),'generated');",
+           "mdl = 'QuadXFlight';","folder = fullfile(fileparts(mfilename('fullpath')),'generated');",
            "if ~isfolder(folder), mkdir(folder); end","target = fullfile(folder,[mdl '.slx']);",
-           "if bdIsLoaded(mdl), error('DroneFlightBlocks is already open. Close it before rebuilding.'); end",
+           "if bdIsLoaded(mdl), error('QuadXFlight is already open. Close it before rebuilding.'); end",
            "if isfile(target), error('Generated model already exists. Open it with run_drone.'); end",
            "load_system('simulink');","new_system(mdl);","try",
-           "set_param(mdl,'SolverType','Fixed-step','Solver','ode4','FixedStep','df_p.step_s','StopTime','9','InitFcn','df_init;','ReturnWorkspaceOutputs','on');"]
+           "set_param(mdl,'SolverType','Fixed-step','Solver','ode4','FixedStep','drone.step_s','StopTime','9','InitFcn','setup_flight;','ReturnWorkspaceOutputs','on');"]
     def walk(g,sys):
         for k,name,pos,pars,child in g.blocks:
             path=sys+'/'+name
@@ -198,7 +205,7 @@ def emit_builder(g):
                 ins="add_line("+','.join(map(matlab_text,[sys,f'{src}/{o}',f'{dest}/{i}','autorouting','on']))+");"
                 lines.append(('line = ' if label else '')+ins)
                 if label:lines.append('set_param(line,\'Name\','+matlab_text(label)+');')
-    walk(g,'DroneFlightBlocks')
+    walk(g,'QuadXFlight')
     lines+=["save_system(mdl,target);","catch problem","    close_system(mdl,0);","    rethrow(problem);","end","end"]
     return '\n'.join(lines)+'\n'
 
@@ -219,8 +226,8 @@ def emit_mdl(g):
             lines+=['  '+a for a in line+['}']]
         return lines+['}']
     return '\n'.join(['Model {','  Name "DroneFlight"','  Version 8.0','  SavedCharacterEncoding "UTF-8"',
-       '  SolverType "Fixed-step"','  Solver "ode4"','  FixedStep "df_p.step_s"','  StopTime "9"',
-       '  InitFcn "df_init;"','  ReturnWorkspaceOutputs on',*['  '+a for a in system(g)],'}',''])
+       '  SolverType "Fixed-step"','  Solver "ode4"','  FixedStep "drone.step_s"','  StopTime "9"',
+       '  InitFcn "setup_flight;"','  ReturnWorkspaceOutputs on',*['  '+a for a in system(g)],'}',''])
 
 if __name__=='__main__':
     g=graph()

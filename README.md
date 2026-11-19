@@ -10,7 +10,7 @@ Open MATLAB R2023a with Simulink, make the **repository root** the current folde
 run_drone
 ```
 
-The first run builds `generated/DroneFlightBlocks.slx` from sums, gains, products, trigonometric blocks, integrators, limits and routing blocks. The new filename allows the earlier `DroneFlight.slx` to stay open while you try this version. Subsequent runs reuse that file. The model starts in level hover at 5 m, waits one second, commands 2 m/s forward for four seconds, then brakes and holds for four seconds. The auxiliary commands remain at zero except the constant 5 m height target. The command is a velocity setpoint, so braking ends in a hover at the new position.
+The first run builds `generated/QuadXFlight.slx` from sums, gains, products, trigonometric blocks, integrators, limits and routing blocks. It has its own filename so earlier saved models can stay open. Subsequent runs reuse that file. The model starts in level hover at 5 m, waits one second, commands 2 m/s forward for four seconds, then brakes and holds for four seconds. The auxiliary commands remain at zero except the constant 5 m height target. The command is a velocity setpoint, so braking ends in a hover at the new position.
 
 The routine runs the simulation, checks its results against the Python flight reference, writes the replay inputs, and opens **Flight scopes**. Inside **Flight scopes**, open **Flight response**, **Mixer inputs** or **Motor outputs**, then double-click a Scope. For the demonstration, start with **Motor outputs → Four thrust references - N** and **Flight response → Forward speed - m per s**. The numerical checker reads the signals directly from existing block ports through Simulink signal logging. Scope units and signal order are:
 
@@ -33,6 +33,14 @@ The 52 s mission commands forward, back, right, left, climb, descent and paired 
 ## Motor inputs for later replay
 
 `run_drone('demonstration',3)` selects M3 for export. The default is M1. The CSV in `results/` includes time, speed reference (rad/s and rpm), thrust reference (N), actual flight-model speed (rpm), and positive resisting aerodynamic torque (N·m). The matching MAT file holds named `timeseries` signals `speed_ref_rad_s`, `speed_ref_rpm`, and `aero_load_Nm`. The trace begins at hover speed. The aerodynamic load excludes rotor acceleration torque. The detailed EMRAX speed/current simulation and its initialization are deferred.
+
+## Where the SLX gets its parameters
+
+- **`design.json`** – edit the vehicle data, controller gains, solver interval and mission settings here. Python and MATLAB read the same inputs.
+- **`drone_parameters.m`** – the MATLAB parameter file. It reads those inputs and calculates the propeller constants, hover speed, thrust limit, mixing matrix and initial state. Use `drone_parameters()` at the MATLAB prompt to inspect the values.
+- **`setup_flight.m`** – the model initialization callback. It places the parameter structure `drone` and the two command time series in the workspace, so each block can use names such as `drone.mass_kg`.
+
+The earlier `df_` prefix stood for the Drone_Final project. The current diagrams use descriptive names. Two compatibility functions with the old names support earlier saved block models.
 
 ## Report inputs and units
 
@@ -57,13 +65,13 @@ The 10% sizing margin serves as the model's per-rotor thrust ceiling. The projec
 
 ## Flight implementation
 
-- **Movement command** supplies the forward reference plus optional right, climb, height and yaw-rate channels. The height target is the integral of the climb command plus the initial 5 m.
+- **Flight command** supplies the forward reference plus optional right, climb, height and yaw-rate channels. The height target is the integral of the climb command plus the initial 5 m.
 - **Flight controller** rotates the horizontal command using current heading. Velocity and height errors produce tilt and collective demands. The inner loops turn attitude and rate errors into body moments.
-- **Quad X mixer** applies the inverse force/moment effectiveness matrix. Each motor contributes one unit of upward thrust, a signed arm moment in roll and pitch, and a signed Q/T reaction moment in yaw per newton of thrust. When a request exceeds actuator limits, a common scale reduces the moment-producing differences while preserving feasible collective thrust.
+- **Motor mixer** applies the inverse force/moment effectiveness matrix. Each motor contributes one unit of upward thrust, a signed arm moment in roll and pitch, and a signed Q/T reaction moment in yaw per newton of thrust. When a request exceeds actuator limits, a common scale reduces the moment-producing differences while preserving feasible collective thrust.
 - **Thrust to speed** takes the square root of each thrust divided by kT. The resulting four references are in rad/s.
-- **Rotors and body** advances 12 NED/body states and four rotor speeds with RK4 at 1.25 ms. A Zero-Order Hold samples the state for the flight controller. The five continuous Integrator blocks advance position, velocity, Euler angles, body rates and the four rotor speeds using the fixed-step ode4 solver. Rotor yaw reaction uses quasi-steady propeller torque.
+- **Drone dynamics** advances 12 NED/body states and four rotor speeds with RK4 at 1.25 ms. A Zero-Order Hold samples the state for the flight controller. The five continuous Integrator blocks advance position, velocity, Euler angles, body rates and the four rotor speeds using the fixed-step ode4 solver. Rotor yaw reaction uses quasi-steady propeller torque.
 
-The portable text model is `model/DroneFlight.mdl`. To inspect it directly from the repository root, close any other model named DroneFlight, run `df_init`, then `open_system('model/DroneFlight.mdl')`. The recommended `run_drone` entry uses the native builder and its own SLX. Both model descriptions come from `model/generate.py`.
+The portable text model is `model/DroneFlight.mdl`. To inspect it directly from the repository root, close any other model named DroneFlight, run `setup_flight`, then `open_system('model/DroneFlight.mdl')`. The recommended `run_drone` entry uses the native builder and its own SLX. Both model descriptions come from `model/generate.py`.
 
 ## Verification
 
@@ -74,6 +82,10 @@ python -m pip install -r requirements.txt
 python -m pytest -q -s
 ```
 
-The tests cover report-unit conversions, ideal-power consistency, all three mixer signs, saturation, command and load traces, braking, mission return and model wiring. `reference/expected.json` records the Python response metrics used by the MATLAB runner. The Python tests also evaluate the connections and arithmetic of the generated Simulink diagrams on off-axis states and integrate the wired forward demonstration from start to finish. These tests run in Python.
+The tests cover report-unit conversions, ideal-power consistency, all three mixer signs, saturation, command and load traces, braking, mission return and model wiring. `reference/expected.json` records the Python response metrics used by the MATLAB runner. The Python tests also evaluate the connections and arithmetic of the generated Simulink diagrams on off-axis states and integrate the wired forward demonstration and the full 52 s mission from start to finish. These tests run in Python.
+
+In the default Python demonstration, the 2 m/s forward pulse produces a peak of 1.9978 m/s, 7.9154 m of forward travel and a final height of 5.0004 m. The complete mission ends 0.0416 m from its start. A second numerical check keeps the controller sample time fixed and uses two midpoint steps per interval for the plant. Across 49 mission checkpoints it agrees with RK4 within 0.000001 m in position and 0.002 rpm in rotor speed.
+
+A small final position error can coexist with a transient tracking error. The mission's first 10°/s yaw demand lasts 3 s. The heading is about 18.3° at release and 26.3° after the hover gap. The vehicle begins this turn within 0.02° of north. In this model a yaw-rate command provides no absolute heading target. The independent comparisons establish numerical consistency for the shared assumptions. Physical load accuracy still depends on propeller data.
 
 After a local simulation, `run_drone` checks the scope unit conversions and scenario acceptance criteria. It compares position, velocity, attitude, motor speed and thrust against `reference/checkpoints.json` at command changes and during each manoeuvre. The demonstration checks rear-pair thrust at acceleration, front-pair thrust at braking and final speed below 0.1 m/s. The mission checks that final displacement is within 0.5 m. The MATLAB scripts and models are written, not run in R2023a. Local simulation must confirm compilation, scope rendering and the numerical comparisons.

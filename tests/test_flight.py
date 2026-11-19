@@ -39,6 +39,7 @@ def test_individual_axes_and_allocation_limits():
 def test_flight_scenarios():
     f=Flight()
     saved={}
+    checkpoints={}
     for name in ('demonstration','mission'):
         out=f.run(name)
         t=out[:,0];x=out[:,1:17];load=out[:,17:21];T=out[:,21:25];ref=out[:,25:29];q=out[:,29:33]
@@ -60,7 +61,24 @@ def test_flight_scenarios():
             assert len(t)==round(52/f.dt)+1 and np.linalg.norm(x[-1,:3]-[0,0,-5])<.5
             assert np.max(x[:,0])>6 and np.max(x[:,1])>6 and s['max_height_m']>7.5
             assert s['min_height_m']>2 and np.max(x[:,8])>np.deg2rad(15)
+        # At each command edge and within each leg, compare the complete motor
+        # response as well as the path. All times land on the solver grid.
+        edges=np.array(f.p[name])[:,0]
+        times=np.unique(np.minimum(np.r_[edges,edges+.25,edges+.75],edges[-1]))
+        index=np.rint(times/f.dt).astype(int)
+        checkpoints[name]={'time_s':times.tolist()}
+        for key,values in [('position',x[:,:3]),('velocity',x[:,3:6]),('attitude',x[:,6:9]),
+                           ('thrust',T),('ref_rpm',ref*30/pi),('rotor_rpm',x[:,12:]*30/pi)]:
+            checkpoints[name][key]=values[index].round(8).tolist()
         print(f"{name}: final N/E/H {s['final_north_m']:.4f}, {s['final_east_m']:.4f}, {s['final_height_m']:.4f} m | PASS")
+    golden=ROOT/'reference'/'checkpoints.json'
+    if golden.exists():
+        stored=json.loads(golden.read_text())
+        for name,arrays in checkpoints.items():
+            for key,values in arrays.items():
+                np.testing.assert_allclose(values,stored[name][key],atol=1e-6,rtol=1e-8)
+    else:
+        golden.write_text(json.dumps(checkpoints,separators=(',',':'))+'\n')
     # Stable precision across platforms and a compact independent MATLAB fixture.
     fixture=ROOT/'reference'/'expected.json'
     rounded={k:{n:round(float(v),8) for n,v in values.items()} for k,values in saved.items()}
@@ -86,13 +104,17 @@ def test_model_sources_agree_and_have_connected_inputs():
                 assert target in names and (target,port) not in used
                 used.add((target,port))
         for kind,name,_,pars,child in diagram.blocks:
+            assert kind not in ('ToWorkspace','MATLABFcn','Fcn')
             if kind=='FromWorkspace':
                 assert pars['Interpolate']=='off'
                 assert pars['OutputAfterFinalValue']=='Holding final value'
             if child is not None:
                 inspect(child);inputs=sum(b[0]=='Inport' for b in child.blocks)
-            elif kind in ('Inport','From','FromWorkspace'): inputs=0
+            elif kind in ('Inport','From','FromWorkspace','Constant'): inputs=0
             elif kind=='Mux': inputs=int(pars['Inputs'])
+            elif kind in ('Sum','Product'):inputs=len(pars['Inputs'])
+            elif kind=='DotProduct':inputs=2
+            elif kind=='MinMax':inputs=int(pars['Inputs'])
             elif kind=='Scope':inputs=int(pars.get('NumInputPorts',1))
             else: inputs=1
             assert all((name,i+1) in used for i in range(inputs))

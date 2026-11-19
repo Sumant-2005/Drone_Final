@@ -13,5 +13,7 @@ b = p.kQ/p.kT;
 % Rows: upward thrust, body roll, pitch, yaw moments. FR, BL, FL, BR.
 p.effectiveness = [1 1 1 1; -a a a -a; a -a a -a; b b -b -b];
 p.allocation = p.effectiveness\eye(4);
+I = p.inertia_kg_m2(:);
+p.gyro_gain = diag([I(3)-I(2); I(1)-I(3); I(2)-I(1)]);
 p.x0 = [0;0;-p.initial_height_m;zeros(9,1);p.hover_speed*ones(4,1)];
 end

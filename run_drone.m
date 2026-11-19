@@ -5,11 +5,11 @@ if nargin < 2, motor=1; end
 scenario=validatestring(scenario,{'demonstration','mission'});
 validateattributes(motor,{'numeric'},{'scalar','real','integer','>=',1,'<=',4});
 root=fileparts(mfilename('fullpath'));
-mdl='DroneFlight';
+mdl='DroneFlightBlocks';
 file=fullfile(root,'generated',[mdl '.slx']);
 if bdIsLoaded(mdl)
     opened=get_param(mdl,'FileName');
-    assert(strcmp(opened,file),'A different DroneFlight model is open. Close it before running this project.');
+    assert(strcmp(opened,file),'A different DroneFlightBlocks model is open. Close it before running this project.');
 elseif isfile(file)
     load_system(file);
 else
@@ -19,24 +19,30 @@ end
 p=df_parameters();
 profile=p.(scenario);
 df_init(scenario);
-% Older generated SLX files inherited Extrapolation from the library block.
-% Hold each sampled command between updates and beyond the last sample.
-sources = {'Forward speed command','Other mission channels'};
-for k = 1:numel(sources)
-    set_param([mdl '/Movement command/' sources{k}], ...
-        'OutputAfterFinalValue','Holding final value','Interpolate','off');
+% Record signals at existing block ports for comparisons and replay.
+% All user-facing outputs go to ordinary Scopes.
+paths={'Movement command','Flight controller','Quad X mixer','Thrust to speed', ...
+    'Rotors and body','Flight scopes/Flight instruments'};
+keys={'command','loads','thrust','speedRef','state','measurements'};
+for k=1:numel(paths)
+    ports=get_param([mdl '/' paths{k}],'PortHandles');
+    set_param(ports.Outport(1),'DataLogging','on','DataLoggingNameMode','Custom', ...
+        'DataLoggingName',keys{k});
 end
+set_param(mdl,'SignalLogging','on','SignalLoggingName','logsout');
 % Leave the selected scenario active for the toolbar Run button, too.
 set_param(mdl,'InitFcn',sprintf('df_init(''%s'');',scenario),'StopTime',num2str(profile(end,1)));
 open_system(mdl);
 out=sim(mdl,'ReturnWorkspaceOutputs','on');
-ref=out.get('df_refLog'); measured=out.get('df_measureLog');
-loads=out.get('df_loadLog'); force=out.get('df_thrustLog'); command=out.get('df_commandLog');
-n=numel(ref.time);
-assert(isequal(ref.time,measured.time,loads.time,force.time,command.time) && ...
-    n==round(profile(end,1)/p.step_s)+1,'Flight logs have inconsistent timestamps.');
-toMatrix=@(log) reshape(log.signals.values,n,[]);
-w=toMatrix(ref); y=toMatrix(measured); T=toMatrix(force); u=toMatrix(loads);
+open_system([mdl '/Flight scopes']);
+signals=out.get('logsout');
+time=(0:p.step_s:profile(end,1)).';
+w=sampled(signals,'speedRef',time,4);
+y=sampled(signals,'measurements',time,15);
+T=sampled(signals,'thrust',time,4);
+u=sampled(signals,'loads',time,4);
+command=sampled(signals,'command',time,5);
+state=sampled(signals,'state',time,16);
 assert(all(isfinite([w,y,T,u]),'all'),'Flight produced a nonfinite output.');
 assert(max(abs(p.kT*w.^2-T),[],'all')<1e-7,'Thrust and speed references disagree.');
 expectedTotal=min(max(u(:,1),0),4*p.max_thrust);
@@ -55,19 +61,32 @@ for k=1:numel(got)
     fprintf('%s: %.6f expected | %.6f got | %s\n',names{k},want(k),got(k),verdict{1+passed});
 end
 assert(all(abs(got-want)<=tol),'Flight response differs from the Python reference.');
+check_flight_response(root,scenario,p,time,command,state,T,w,y);
 % Columns 8:11 are actual rotor rpm and 12:15 are positive resisting loads.
 rpm=w(:,motor)*30/pi;
 q=y(:,11+motor);
-replay=table(ref.time,w(:,motor),rpm,T(:,motor),y(:,7+motor),q, ...
+replay=table(time,w(:,motor),rpm,T(:,motor),y(:,7+motor),q, ...
     'VariableNames',{'time_s','speed_ref_rad_s','speed_ref_rpm','thrust_ref_N','flight_rotor_rpm','aero_load_Nm'});
-speed_ref_rad_s=timeseries(w(:,motor),ref.time);
-speed_ref_rpm=timeseries(rpm,ref.time);
-aero_load_Nm=timeseries(q,ref.time);
+speed_ref_rad_s=timeseries(w(:,motor),time);
+speed_ref_rpm=timeseries(rpm,time);
+aero_load_Nm=timeseries(q,time);
 folder=fullfile(root,'results');
 if ~isfolder(folder), mkdir(folder); end
 stem=fullfile(folder,sprintf('%s_motor%d',scenario,motor));
 writetable(replay,[stem '.csv']);
 save([stem '.mat'],'speed_ref_rad_s','speed_ref_rpm','aero_load_Nm','scenario','motor');
 fprintf('Saved replay to results/%s_motor%d.csv and .mat\n',scenario,motor);
-open_system([mdl '/Flight scopes']);
+end
+
+function values=sampled(dataset,name,time,width)
+element=dataset.getElement(name);
+v=element.Values;
+assert(isa(v,'timeseries') && numel(v.Time)==numel(time) && ...
+    all(abs(v.Time(:)-time)<1e-8),'Incorrect sample grid for %s.',name);
+data=v.Data;
+if ~v.IsTimeFirst
+    data=permute(data,[ndims(data),1:ndims(data)-1]);
+end
+assert(numel(data)==width*numel(time),'Incorrect signal width for %s.',name);
+values=reshape(data,numel(time),width);
 end

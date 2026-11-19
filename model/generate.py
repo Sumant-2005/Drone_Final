@@ -53,8 +53,8 @@ def graph():
     for src,tag,x in [('Movement command','command',100),('Flight controller','loads',285),('Quad X mixer','thrust',476),('Thrust to speed','speedRef',666),('Rotors and body','state',905)]:
         d.tap(src,tag,x,18)
     fb=d.read('state',60,195);d.wire(fb,'Flight controller',2)
-    cmd.add('FromWorkspace','Forward speed command',25,28,155,VariableName='df_forward',Interpolate='off',SampleTime='df_p.step_s')
-    cmd.add('FromWorkspace','Other mission channels',25,130,155,VariableName='df_aux',Interpolate='off',SampleTime='df_p.step_s')
+    cmd.add('FromWorkspace','Forward speed command',25,28,155,VariableName='df_forward',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='df_p.step_s')
+    cmd.add('FromWorkspace','Other mission channels',25,130,155,VariableName='df_aux',Interpolate='off',OutputAfterFinalValue='Holding final value',SampleTime='df_p.step_s')
     cmd.add('Mux','Collect commands',240,30,10,125,Inputs='2')
     cmd.io('Outport','commands',340,80)
     cmd.wire('Forward speed command','Collect commands',label='Forward speed (m per s)')

@@ -19,6 +19,13 @@ end
 p=df_parameters();
 profile=p.(scenario);
 df_init(scenario);
+% Older generated SLX files inherited Extrapolation from the library block.
+% Hold each sampled command between updates and beyond the last sample.
+sources = {'Forward speed command','Other mission channels'};
+for k = 1:numel(sources)
+    set_param([mdl '/Movement command/' sources{k}], ...
+        'OutputAfterFinalValue','Holding final value','Interpolate','off');
+end
 % Leave the selected scenario active for the toolbar Run button, too.
 set_param(mdl,'InitFcn',sprintf('df_init(''%s'');',scenario),'StopTime',num2str(profile(end,1)));
 open_system(mdl);

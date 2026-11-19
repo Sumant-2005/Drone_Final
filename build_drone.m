@@ -11,8 +11,8 @@ new_system(mdl);
 try
 set_param(mdl,'SolverType','Fixed-step','Solver','FixedStepDiscrete','FixedStep','df_p.step_s','StopTime','9','InitFcn','df_init;','ReturnWorkspaceOutputs','on');
 add_block('built-in/Subsystem','DroneFlight/Movement command','Position',[20 90 153 154]);
-add_block('simulink/Sources/From Workspace','DroneFlight/Movement command/Forward speed command','Position',[25 28 180 62],'VariableName','df_forward','Interpolate','off','SampleTime','df_p.step_s');
-add_block('simulink/Sources/From Workspace','DroneFlight/Movement command/Other mission channels','Position',[25 130 180 164],'VariableName','df_aux','Interpolate','off','SampleTime','df_p.step_s');
+add_block('simulink/Sources/From Workspace','DroneFlight/Movement command/Forward speed command','Position',[25 28 180 62],'VariableName','df_forward','Interpolate','off','OutputAfterFinalValue','Holding final value','SampleTime','df_p.step_s');
+add_block('simulink/Sources/From Workspace','DroneFlight/Movement command/Other mission channels','Position',[25 130 180 164],'VariableName','df_aux','Interpolate','off','OutputAfterFinalValue','Holding final value','SampleTime','df_p.step_s');
 add_block('simulink/Signal Routing/Mux','DroneFlight/Movement command/Collect commands','Position',[240 30 250 155],'Inputs','2');
 add_block('built-in/Outport','DroneFlight/Movement command/commands','Position',[340 80 380 100],'Port','1');
 line = add_line('DroneFlight/Movement command','Forward speed command/1','Collect commands/1','autorouting','on');

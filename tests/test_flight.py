@@ -86,6 +86,9 @@ def test_model_sources_agree_and_have_connected_inputs():
                 assert target in names and (target,port) not in used
                 used.add((target,port))
         for kind,name,_,pars,child in diagram.blocks:
+            if kind=='FromWorkspace':
+                assert pars['Interpolate']=='off'
+                assert pars['OutputAfterFinalValue']=='Holding final value'
             if child is not None:
                 inspect(child);inputs=sum(b[0]=='Inport' for b in child.blocks)
             elif kind in ('Inport','From','FromWorkspace'): inputs=0

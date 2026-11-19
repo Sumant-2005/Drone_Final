@@ -4,7 +4,15 @@ profile=p.(scenario);
 reference=interp1(profile(:,1),profile(:,2:5),time,'previous');
 height=p.initial_height_m+[0;cumsum(reference(1:end-1,3))*p.step_s];
 reference=[reference(:,1:3),height,reference(:,4)*pi/180];
-check('Command profile, maximum absolute error',max(abs(cmd-reference),[],'all'),0,1e-8);
+delta = abs(cmd-reference);
+[worst,flat] = max(delta(:));
+if worst>1e-8
+    [row,col] = ind2sub(size(delta),flat);
+    names = {'forward speed (m/s)','right speed (m/s)','climb rate (m/s)','height target (m)','yaw rate (rad/s)'};
+    fprintf('Worst command mismatch: %s at t=%.12g s | expected %.12g | got %.12g\n', ...
+        names{col},time(row),reference(row,col),cmd(row,col));
+end
+check('Command profile, maximum absolute error',worst,0,1e-8);
 instruments=[cos(x(:,9)).*x(:,4)+sin(x(:,9)).*x(:,5),-x(:,3),x(:,1:2), ...
     x(:,7:9)*180/pi,x(:,13:16)*30/pi,p.kQ*x(:,13:16).^2];
 check('Scope channels, maximum conversion error',max(abs(y-instruments),[],'all'),0,1e-7);

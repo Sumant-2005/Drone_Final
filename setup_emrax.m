@@ -38,7 +38,8 @@ time = [warm; t+e.mission_start];
 e.stop_time = time(end);
 speed = [p.hover_speed*30/pi*fraction; rpm];
 torque = [p.kQ*p.hover_speed^2*fraction.^2; loadNm];
-assignin('base','shaft_speed_command',timeseries(speed,time));
-assignin('base','shaft_load',timeseries(torque,time));
+sourceTime = held_source_time(time);
+assignin('base','shaft_speed_command',timeseries(speed,sourceTime));
+assignin('base','shaft_load',timeseries(torque,sourceTime));
 assignin('base','emrax',e);
 end

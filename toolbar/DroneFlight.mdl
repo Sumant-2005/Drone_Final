@@ -1,0 +1,3933 @@
+Model {
+  Name "DroneFlight"
+  Version 8.0
+  SavedCharacterEncoding "UTF-8"
+  SolverType "Fixed-step"
+  Solver "ode4"
+  FixedStep "drone.step_s"
+  StopTime "drone.mission(end,1)"
+  PreLoadFcn "FlightParameters;"
+  InitFcn "FlightParameters;"
+  StartFcn "evalin('base','clear motor1_flight_replay');"
+  ReturnWorkspaceOutputs off
+  SaveFormat "StructureWithTime"
+  SaveOutput on
+  OutputSaveName "motor1_flight_replay"
+  LimitDataPoints off
+  Decimation 1
+  SaveTime off
+  System {
+    Location [20, 60, 1200, 700]
+    Block {
+      BlockType SubSystem
+      Name "Flight command"
+      Position [20, 90, 153, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType FromWorkspace
+          Name "Forward speed command"
+          Position [25, 28, 180, 62]
+          VariableName "forward_command"
+          Interpolate "off"
+          OutputAfterFinalValue "Holding final value"
+          SampleTime "drone.step_s"
+        }
+        Block {
+          BlockType FromWorkspace
+          Name "Right climb height and yaw"
+          Position [25, 130, 180, 164]
+          VariableName "mission_commands"
+          Interpolate "off"
+          OutputAfterFinalValue "Holding final value"
+          SampleTime "drone.step_s"
+        }
+        Block {
+          BlockType Mux
+          Name "Collect commands"
+          Position [240, 30, 250, 155]
+          Inputs "2"
+        }
+        Block {
+          BlockType Outport
+          Name "commands"
+          Position [340, 80, 380, 100]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Forward speed command"
+          SrcPort 1
+          Name "Forward speed (m per s)"
+          DstBlock "Collect commands"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Right climb height and yaw"
+          SrcPort 1
+          DstBlock "Collect commands"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Collect commands"
+          SrcPort 1
+          DstBlock "commands"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Flight controller"
+      Position [212, 90, 337, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "Commands"
+          Position [30, 48, 70, 68]
+          Port "1"
+        }
+        Block {
+          BlockType Inport
+          Name "Measured state"
+          Position [30, 372, 70, 392]
+          Port "2"
+        }
+        Block {
+          BlockType Demux
+          Name "Movement references"
+          Position [230, 40, 239, 136]
+          Outputs "[2 1 1 1]"
+        }
+        Block {
+          BlockType Demux
+          Name "Feedback channels"
+          Position [230, 364, 239, 556]
+          Outputs "[2 1 2 1 2 1 3 4]"
+        }
+        Block {
+          BlockType Terminator
+          Name "Feedback channels unused 1"
+          Position [298, 370, 310, 382]
+        }
+        Block {
+          BlockType Terminator
+          Name "Feedback channels unused 8"
+          Position [298, 538, 310, 550]
+        }
+        Block {
+          BlockType SubSystem
+          Name "Horizontal velocity"
+          Position [630, 40, 775, 88]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Forward and right demand"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "North and east velocity"
+              Position [30, 264, 70, 284]
+              Port "2"
+            }
+            Block {
+              BlockType Inport
+              Name "Heading"
+              Position [30, 372, 70, 392]
+              Port "3"
+            }
+            Block {
+              BlockType SubSystem
+              Name "Rotate velocity into body"
+              Position [230, 256, 375, 300]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Planar components"
+                  Position [30, 156, 70, 176]
+                  Port "1"
+                }
+                Block {
+                  BlockType Demux
+                  Name "Components"
+                  Position [230, 148, 239, 196]
+                  Outputs "[1 1]"
+                }
+                Block {
+                  BlockType Inport
+                  Name "Yaw"
+                  Position [30, 372, 70, 392]
+                  Port "2"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Cosine"
+                  Position [230, 364, 365, 402]
+                  Operator "cos"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Sine"
+                  Position [230, 472, 365, 510]
+                  Operator "sin"
+                }
+                Block {
+                  BlockType Product
+                  Name "First times cosine"
+                  Position [430, 40, 565, 78]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "Second times sine"
+                  Position [430, 148, 565, 186]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "First times sine"
+                  Position [430, 256, 565, 294]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "Second times cosine"
+                  Position [430, 364, 565, 402]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Sum
+                  Name "Rotated first"
+                  Position [630, 40, 765, 78]
+                  Inputs "++"
+                }
+                Block {
+                  BlockType Sum
+                  Name "Rotated second"
+                  Position [630, 256, 765, 294]
+                  Inputs "+-"
+                }
+                Block {
+                  BlockType Mux
+                  Name "Join components"
+                  Position [830, 148, 840, 186]
+                  Inputs "2"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Rotated vector"
+                  Position [1030, 156, 1070, 176]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Planar components"
+                  SrcPort 1
+                  DstBlock "Components"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Yaw"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Cosine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Sine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Components"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "First times cosine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "First times sine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Cosine"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "First times cosine"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "Second times cosine"
+                    DstPort 2
+                  }
+                }
+                Line {
+                  SrcBlock "Components"
+                  SrcPort 2
+                  Branch {
+                    DstBlock "Second times sine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Second times cosine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Sine"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Second times sine"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "First times sine"
+                    DstPort 2
+                  }
+                }
+                Line {
+                  SrcBlock "First times cosine"
+                  SrcPort 1
+                  DstBlock "Rotated first"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Second times sine"
+                  SrcPort 1
+                  DstBlock "Rotated first"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Second times cosine"
+                  SrcPort 1
+                  DstBlock "Rotated second"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "First times sine"
+                  SrcPort 1
+                  DstBlock "Rotated second"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Rotated first"
+                  SrcPort 1
+                  DstBlock "Join components"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Rotated second"
+                  SrcPort 1
+                  DstBlock "Join components"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Join components"
+                  SrcPort 1
+                  DstBlock "Rotated vector"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType Sum
+              Name "Velocity error"
+              Position [430, 40, 565, 78]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Gain
+              Name "Velocity gain"
+              Position [630, 40, 765, 78]
+              Gain "drone.velocity_gain_per_s"
+            }
+            Block {
+              BlockType Gain
+              Name "Drag feedforward"
+              Position [630, 148, 765, 186]
+              Gain "drone.linear_drag_N_per_m_s/drone.mass_kg"
+            }
+            Block {
+              BlockType Sum
+              Name "Requested acceleration"
+              Position [830, 40, 965, 78]
+              Inputs "++"
+            }
+            Block {
+              BlockType SubSystem
+              Name "Bound horizontal acceleration"
+              Position [1030, 40, 1175, 84]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Acceleration"
+                  Position [30, 48, 70, 68]
+                  Port "1"
+                }
+                Block {
+                  BlockType DotProduct
+                  Name "Squared magnitude"
+                  Position [230, 148, 365, 186]
+                }
+                Block {
+                  BlockType Sqrt
+                  Name "Magnitude"
+                  Position [430, 148, 565, 186]
+                }
+                Block {
+                  BlockType Gain
+                  Name "Relative to limit"
+                  Position [630, 148, 765, 186]
+                  Gain "1/drone.max_accel_m_s2"
+                }
+                Block {
+                  BlockType Saturate
+                  Name "Minimum divisor of one"
+                  Position [830, 148, 965, 186]
+                  LowerLimit "1"
+                  UpperLimit "inf"
+                }
+                Block {
+                  BlockType Product
+                  Name "Scale vector"
+                  Position [1030, 40, 1165, 78]
+                  Inputs "*/"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Bounded acceleration"
+                  Position [1230, 48, 1270, 68]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Acceleration"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Squared magnitude"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Squared magnitude"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "Scale vector"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Squared magnitude"
+                  SrcPort 1
+                  DstBlock "Magnitude"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Magnitude"
+                  SrcPort 1
+                  DstBlock "Relative to limit"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Relative to limit"
+                  SrcPort 1
+                  DstBlock "Minimum divisor of one"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Minimum divisor of one"
+                  SrcPort 1
+                  DstBlock "Scale vector"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Scale vector"
+                  SrcPort 1
+                  DstBlock "Bounded acceleration"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType SubSystem
+              Name "Convert acceleration to tilt"
+              Position [1230, 40, 1375, 84]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Forward and right acceleration"
+                  Position [30, 48, 70, 68]
+                  Port "1"
+                }
+                Block {
+                  BlockType Gain
+                  Name "Divide by gravity"
+                  Position [230, 40, 365, 78]
+                  Gain "1/drone.gravity_m_s2"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Tilt angles"
+                  Position [430, 40, 565, 78]
+                  Operator "atan"
+                }
+                Block {
+                  BlockType Gain
+                  Name "Right to roll and forward to pitch"
+                  Position [630, 40, 765, 78]
+                  Gain "[0 1;-1 0]"
+                  Multiplication "Matrix(K*u)"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Roll and pitch"
+                  Position [830, 48, 870, 68]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Forward and right acceleration"
+                  SrcPort 1
+                  DstBlock "Divide by gravity"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Divide by gravity"
+                  SrcPort 1
+                  DstBlock "Tilt angles"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Tilt angles"
+                  SrcPort 1
+                  DstBlock "Right to roll and forward to pitch"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Right to roll and forward to pitch"
+                  SrcPort 1
+                  DstBlock "Roll and pitch"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType Outport
+              Name "Roll and pitch demand"
+              Position [1430, 48, 1470, 68]
+              Port "1"
+            }
+            Line {
+              SrcBlock "North and east velocity"
+              SrcPort 1
+              DstBlock "Rotate velocity into body"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Heading"
+              SrcPort 1
+              DstBlock "Rotate velocity into body"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Forward and right demand"
+              SrcPort 1
+              Branch {
+                DstBlock "Velocity error"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Drag feedforward"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Rotate velocity into body"
+              SrcPort 1
+              DstBlock "Velocity error"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Velocity error"
+              SrcPort 1
+              DstBlock "Velocity gain"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Velocity gain"
+              SrcPort 1
+              DstBlock "Requested acceleration"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Drag feedforward"
+              SrcPort 1
+              DstBlock "Requested acceleration"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Requested acceleration"
+              SrcPort 1
+              DstBlock "Bound horizontal acceleration"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Bound horizontal acceleration"
+              SrcPort 1
+              DstBlock "Convert acceleration to tilt"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Convert acceleration to tilt"
+              SrcPort 1
+              DstBlock "Roll and pitch demand"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Height and climb"
+          Position [630, 256, 775, 336]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Climb demand"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Height demand"
+              Position [30, 156, 70, 176]
+              Port "2"
+            }
+            Block {
+              BlockType Inport
+              Name "Down position"
+              Position [30, 264, 70, 284]
+              Port "3"
+            }
+            Block {
+              BlockType Inport
+              Name "Down velocity"
+              Position [30, 372, 70, 392]
+              Port "4"
+            }
+            Block {
+              BlockType Inport
+              Name "Roll and pitch"
+              Position [30, 588, 70, 608]
+              Port "5"
+            }
+            Block {
+              BlockType Sum
+              Name "Height error"
+              Position [230, 148, 365, 186]
+              Inputs "++"
+            }
+            Block {
+              BlockType Gain
+              Name "Height gain"
+              Position [430, 148, 565, 186]
+              Gain "drone.height_gain_per_s"
+            }
+            Block {
+              BlockType Sum
+              Name "Requested climb"
+              Position [630, 40, 765, 78]
+              Inputs "++"
+            }
+            Block {
+              BlockType Sum
+              Name "Climb error"
+              Position [830, 148, 965, 186]
+              Inputs "++"
+            }
+            Block {
+              BlockType Gain
+              Name "Climb gain times mass"
+              Position [1030, 148, 1165, 186]
+              Gain "drone.mass_kg*drone.climb_gain_per_s"
+            }
+            Block {
+              BlockType Gain
+              Name "Vertical drag feedforward"
+              Position [1030, 40, 1165, 78]
+              Gain "drone.linear_drag_N_per_m_s"
+            }
+            Block {
+              BlockType Constant
+              Name "Weight"
+              Position [1030, 256, 1165, 294]
+              Value "drone.mass_kg*drone.gravity_m_s2"
+            }
+            Block {
+              BlockType Sum
+              Name "Upward force"
+              Position [1230, 148, 1365, 202]
+              Inputs "+++"
+            }
+            Block {
+              BlockType Trigonometry
+              Name "Roll and pitch cosines"
+              Position [430, 580, 565, 618]
+              Operator "cos"
+            }
+            Block {
+              BlockType Demux
+              Name "Cosine components"
+              Position [630, 580, 639, 628]
+              Outputs "[1 1]"
+            }
+            Block {
+              BlockType Product
+              Name "Vertical projection"
+              Position [830, 580, 965, 618]
+              Inputs "**"
+            }
+            Block {
+              BlockType Saturate
+              Name "Projection floor"
+              Position [1030, 580, 1165, 618]
+              LowerLimit "0.5"
+              UpperLimit "1"
+            }
+            Block {
+              BlockType Product
+              Name "Tilt compensation"
+              Position [1430, 148, 1565, 186]
+              Inputs "*/"
+            }
+            Block {
+              BlockType Outport
+              Name "Collective thrust"
+              Position [1630, 156, 1670, 176]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Height demand"
+              SrcPort 1
+              DstBlock "Height error"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Down position"
+              SrcPort 1
+              DstBlock "Height error"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Height error"
+              SrcPort 1
+              DstBlock "Height gain"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Climb demand"
+              SrcPort 1
+              DstBlock "Requested climb"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Height gain"
+              SrcPort 1
+              DstBlock "Requested climb"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Requested climb"
+              SrcPort 1
+              Branch {
+                DstBlock "Climb error"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Vertical drag feedforward"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Down velocity"
+              SrcPort 1
+              DstBlock "Climb error"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Climb error"
+              SrcPort 1
+              DstBlock "Climb gain times mass"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Climb gain times mass"
+              SrcPort 1
+              DstBlock "Upward force"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Vertical drag feedforward"
+              SrcPort 1
+              DstBlock "Upward force"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Weight"
+              SrcPort 1
+              DstBlock "Upward force"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Roll and pitch"
+              SrcPort 1
+              DstBlock "Roll and pitch cosines"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Roll and pitch cosines"
+              SrcPort 1
+              DstBlock "Cosine components"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Cosine components"
+              SrcPort 1
+              DstBlock "Vertical projection"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Cosine components"
+              SrcPort 2
+              DstBlock "Vertical projection"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Vertical projection"
+              SrcPort 1
+              DstBlock "Projection floor"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Upward force"
+              SrcPort 1
+              DstBlock "Tilt compensation"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Projection floor"
+              SrcPort 1
+              DstBlock "Tilt compensation"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Tilt compensation"
+              SrcPort 1
+              DstBlock "Collective thrust"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Attitude and body rates"
+          Position [1030, 40, 1175, 104]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Demanded roll and pitch"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Measured roll and pitch"
+              Position [30, 156, 70, 176]
+              Port "2"
+            }
+            Block {
+              BlockType Inport
+              Name "Demanded yaw rate"
+              Position [30, 264, 70, 284]
+              Port "3"
+            }
+            Block {
+              BlockType Inport
+              Name "Body rates"
+              Position [30, 372, 70, 392]
+              Port "4"
+            }
+            Block {
+              BlockType Sum
+              Name "Angle error"
+              Position [230, 40, 365, 78]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Gain
+              Name "Angle gain"
+              Position [430, 40, 565, 78]
+              Gain "drone.tilt_gain_per_s"
+            }
+            Block {
+              BlockType Mux
+              Name "Desired body rates"
+              Position [630, 148, 640, 186]
+              Inputs "2"
+            }
+            Block {
+              BlockType Sum
+              Name "Rate error"
+              Position [830, 148, 965, 186]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Gain
+              Name "Inertia times rate gain"
+              Position [1030, 148, 1165, 186]
+              Gain "diag(drone.inertia_kg_m2(:).*drone.rate_gain_per_s(:))"
+              Multiplication "Matrix(K*u)"
+            }
+            Block {
+              BlockType Gain
+              Name "Rotational drag"
+              Position [1030, 364, 1165, 402]
+              Gain "drone.angular_drag_Nm_per_rad_s"
+            }
+            Block {
+              BlockType Sum
+              Name "Requested moments"
+              Position [1230, 148, 1365, 186]
+              Inputs "++"
+            }
+            Block {
+              BlockType Outport
+              Name "Body moments"
+              Position [1430, 156, 1470, 176]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Demanded roll and pitch"
+              SrcPort 1
+              DstBlock "Angle error"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Measured roll and pitch"
+              SrcPort 1
+              DstBlock "Angle error"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Angle error"
+              SrcPort 1
+              DstBlock "Angle gain"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Angle gain"
+              SrcPort 1
+              DstBlock "Desired body rates"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Demanded yaw rate"
+              SrcPort 1
+              DstBlock "Desired body rates"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Desired body rates"
+              SrcPort 1
+              DstBlock "Rate error"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Body rates"
+              SrcPort 1
+              Branch {
+                DstBlock "Rate error"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Rotational drag"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Rate error"
+              SrcPort 1
+              DstBlock "Inertia times rate gain"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Inertia times rate gain"
+              SrcPort 1
+              DstBlock "Requested moments"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Rotational drag"
+              SrcPort 1
+              DstBlock "Requested moments"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Requested moments"
+              SrcPort 1
+              DstBlock "Body moments"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType Mux
+          Name "Collective roll pitch yaw"
+          Position [1230, 148, 1240, 186]
+          Inputs "2"
+        }
+        Block {
+          BlockType Outport
+          Name "Requested loads"
+          Position [1430, 156, 1470, 176]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Commands"
+          SrcPort 1
+          DstBlock "Movement references"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Measured state"
+          SrcPort 1
+          DstBlock "Feedback channels"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 1
+          DstBlock "Feedback channels unused 1"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 8
+          DstBlock "Feedback channels unused 8"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Movement references"
+          SrcPort 1
+          DstBlock "Horizontal velocity"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 3
+          DstBlock "Horizontal velocity"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 6
+          DstBlock "Horizontal velocity"
+          DstPort 3
+        }
+        Line {
+          SrcBlock "Movement references"
+          SrcPort 2
+          DstBlock "Height and climb"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Movement references"
+          SrcPort 3
+          DstBlock "Height and climb"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 2
+          DstBlock "Height and climb"
+          DstPort 3
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 4
+          DstBlock "Height and climb"
+          DstPort 4
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 5
+          Branch {
+            DstBlock "Height and climb"
+            DstPort 5
+          }
+          Branch {
+            DstBlock "Attitude and body rates"
+            DstPort 2
+          }
+        }
+        Line {
+          SrcBlock "Horizontal velocity"
+          SrcPort 1
+          DstBlock "Attitude and body rates"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Movement references"
+          SrcPort 4
+          DstBlock "Attitude and body rates"
+          DstPort 3
+        }
+        Line {
+          SrcBlock "Feedback channels"
+          SrcPort 7
+          DstBlock "Attitude and body rates"
+          DstPort 4
+        }
+        Line {
+          SrcBlock "Height and climb"
+          SrcPort 1
+          DstBlock "Collective roll pitch yaw"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Attitude and body rates"
+          SrcPort 1
+          DstBlock "Collective roll pitch yaw"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Collective roll pitch yaw"
+          SrcPort 1
+          DstBlock "Requested loads"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Motor mixer"
+      Position [393, 90, 509, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "requested loads"
+          Position [20, 75, 60, 95]
+          Port "1"
+        }
+        Block {
+          BlockType Gain
+          Name "Mix thrust and moments"
+          Position [140, 63, 300, 110]
+          Gain "drone.allocation"
+          Multiplication "Matrix(K*u)"
+        }
+        Block {
+          BlockType SubSystem
+          Name "Rotor thrust limits"
+          Position [370, 63, 505, 110]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Raw rotor thrusts"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Gain
+              Name "Mean rotor thrust"
+              Position [230, 148, 365, 186]
+              Gain "ones(1,4)/4"
+              Multiplication "Matrix(K*u)"
+            }
+            Block {
+              BlockType Saturate
+              Name "Available collective"
+              Position [430, 256, 565, 294]
+              LowerLimit "0"
+              UpperLimit "drone.max_thrust"
+            }
+            Block {
+              BlockType Sum
+              Name "Differential thrusts"
+              Position [430, 40, 565, 78]
+              Inputs "+-"
+            }
+            Block {
+              BlockType SubSystem
+              Name "Scale to motor limits"
+              Position [630, 148, 775, 192]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Differential thrusts"
+                  Position [30, 156, 70, 176]
+                  Port "1"
+                }
+                Block {
+                  BlockType Inport
+                  Name "Collective per rotor"
+                  Position [30, 372, 70, 392]
+                  Port "2"
+                }
+                Block {
+                  BlockType MinMax
+                  Name "Largest increase"
+                  Position [230, 40, 365, 78]
+                  Function "max"
+                  Inputs "1"
+                }
+                Block {
+                  BlockType MinMax
+                  Name "Largest decrease"
+                  Position [230, 256, 365, 294]
+                  Function "min"
+                  Inputs "1"
+                }
+                Block {
+                  BlockType Gain
+                  Name "Magnitude of decrease"
+                  Position [430, 256, 565, 294]
+                  Gain "-1"
+                }
+                Block {
+                  BlockType Constant
+                  Name "Maximum thrust"
+                  Position [230, 472, 365, 510]
+                  Value "drone.max_thrust"
+                }
+                Block {
+                  BlockType Sum
+                  Name "Upward room"
+                  Position [430, 472, 565, 510]
+                  Inputs "+-"
+                }
+                Block {
+                  BlockType Saturate
+                  Name "Positive increase divisor"
+                  Position [630, 40, 765, 78]
+                  LowerLimit "eps"
+                  UpperLimit "inf"
+                }
+                Block {
+                  BlockType Saturate
+                  Name "Positive decrease divisor"
+                  Position [630, 256, 765, 294]
+                  LowerLimit "eps"
+                  UpperLimit "inf"
+                }
+                Block {
+                  BlockType Product
+                  Name "Increase scale"
+                  Position [830, 40, 965, 78]
+                  Inputs "*/"
+                }
+                Block {
+                  BlockType Product
+                  Name "Decrease scale"
+                  Position [830, 256, 965, 294]
+                  Inputs "*/"
+                }
+                Block {
+                  BlockType MinMax
+                  Name "Smaller scale"
+                  Position [1030, 148, 1165, 186]
+                  Function "min"
+                  Inputs "2"
+                }
+                Block {
+                  BlockType Saturate
+                  Name "Unit scale limit"
+                  Position [1230, 148, 1365, 186]
+                  LowerLimit "0"
+                  UpperLimit "1"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Scale"
+                  Position [1430, 156, 1470, 176]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Differential thrusts"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Largest increase"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Largest decrease"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Largest decrease"
+                  SrcPort 1
+                  DstBlock "Magnitude of decrease"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Maximum thrust"
+                  SrcPort 1
+                  DstBlock "Upward room"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Collective per rotor"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Upward room"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "Decrease scale"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Largest increase"
+                  SrcPort 1
+                  DstBlock "Positive increase divisor"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Magnitude of decrease"
+                  SrcPort 1
+                  DstBlock "Positive decrease divisor"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Upward room"
+                  SrcPort 1
+                  DstBlock "Increase scale"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Positive increase divisor"
+                  SrcPort 1
+                  DstBlock "Increase scale"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Positive decrease divisor"
+                  SrcPort 1
+                  DstBlock "Decrease scale"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Increase scale"
+                  SrcPort 1
+                  DstBlock "Smaller scale"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Decrease scale"
+                  SrcPort 1
+                  DstBlock "Smaller scale"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Smaller scale"
+                  SrcPort 1
+                  DstBlock "Unit scale limit"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Unit scale limit"
+                  SrcPort 1
+                  DstBlock "Scale"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType Product
+              Name "Scale differences"
+              Position [830, 40, 965, 78]
+              Inputs "**"
+            }
+            Block {
+              BlockType Sum
+              Name "Restore collective"
+              Position [1030, 148, 1165, 186]
+              Inputs "++"
+            }
+            Block {
+              BlockType Saturate
+              Name "Thrust bounds"
+              Position [1230, 148, 1365, 186]
+              LowerLimit "0"
+              UpperLimit "drone.max_thrust"
+            }
+            Block {
+              BlockType Outport
+              Name "Feasible thrusts"
+              Position [1430, 156, 1470, 176]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Raw rotor thrusts"
+              SrcPort 1
+              Branch {
+                DstBlock "Mean rotor thrust"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Differential thrusts"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Mean rotor thrust"
+              SrcPort 1
+              Branch {
+                DstBlock "Available collective"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Differential thrusts"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Differential thrusts"
+              SrcPort 1
+              Branch {
+                DstBlock "Scale to motor limits"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Scale differences"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Available collective"
+              SrcPort 1
+              Branch {
+                DstBlock "Scale to motor limits"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Restore collective"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Scale to motor limits"
+              SrcPort 1
+              DstBlock "Scale differences"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Scale differences"
+              SrcPort 1
+              DstBlock "Restore collective"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Restore collective"
+              SrcPort 1
+              DstBlock "Thrust bounds"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Thrust bounds"
+              SrcPort 1
+              DstBlock "Feasible thrusts"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType Outport
+          Name "motor thrusts"
+          Position [560, 75, 600, 95]
+          Port "1"
+        }
+        Line {
+          SrcBlock "requested loads"
+          SrcPort 1
+          DstBlock "Mix thrust and moments"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Mix thrust and moments"
+          SrcPort 1
+          DstBlock "Rotor thrust limits"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Rotor thrust limits"
+          SrcPort 1
+          DstBlock "motor thrusts"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Thrust to speed"
+      Position [575, 90, 699, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "motor thrusts"
+          Position [20, 80, 60, 100]
+          Port "1"
+        }
+        Block {
+          BlockType Gain
+          Name "Inverse thrust coefficient"
+          Position [140, 66, 300, 114]
+          Gain "1/drone.kT"
+        }
+        Block {
+          BlockType Sqrt
+          Name "Square root"
+          Position [370, 66, 473, 114]
+        }
+        Block {
+          BlockType Outport
+          Name "speed references"
+          Position [550, 80, 590, 100]
+          Port "1"
+        }
+        Line {
+          SrcBlock "motor thrusts"
+          SrcPort 1
+          DstBlock "Inverse thrust coefficient"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Inverse thrust coefficient"
+          SrcPort 1
+          DstBlock "Square root"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Square root"
+          SrcPort 1
+          DstBlock "speed references"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Drone dynamics"
+      Position [763, 90, 897, 154]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType Inport
+          Name "Speed references"
+          Position [30, 48, 70, 68]
+          Port "1"
+        }
+        Block {
+          BlockType SubSystem
+          Name "Motor response"
+          Position [230, 40, 375, 84]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Speed references"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Integrator
+              Name "Rotor speed"
+              Position [620, 68, 735, 116]
+              InitialCondition "drone.x0(13:16)"
+            }
+            Block {
+              BlockType Sum
+              Name "Speed error"
+              Position [230, 148, 365, 186]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Gain
+              Name "Inverse motor time constant"
+              Position [430, 148, 565, 186]
+              Gain "1/drone.speed_lag_s"
+            }
+            Block {
+              BlockType Outport
+              Name "Speed"
+              Position [830, 48, 870, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Product
+              Name "Speed squared"
+              Position [830, 148, 965, 186]
+              Inputs "**"
+            }
+            Block {
+              BlockType Gain
+              Name "Propeller thrust"
+              Position [1030, 148, 1165, 186]
+              Gain "drone.kT"
+            }
+            Block {
+              BlockType Gain
+              Name "Thrust to body loads"
+              Position [1230, 148, 1365, 186]
+              Gain "drone.effectiveness"
+              Multiplication "Matrix(K*u)"
+            }
+            Block {
+              BlockType Outport
+              Name "Total force and moments"
+              Position [1430, 156, 1470, 176]
+              Port "2"
+            }
+            Line {
+              SrcBlock "Speed references"
+              SrcPort 1
+              DstBlock "Speed error"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Rotor speed"
+              SrcPort 1
+              Branch {
+                DstBlock "Speed error"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Speed"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Speed squared"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Speed squared"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Speed error"
+              SrcPort 1
+              DstBlock "Inverse motor time constant"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Inverse motor time constant"
+              SrcPort 1
+              DstBlock "Rotor speed"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Speed squared"
+              SrcPort 1
+              DstBlock "Propeller thrust"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Propeller thrust"
+              SrcPort 1
+              DstBlock "Thrust to body loads"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Thrust to body loads"
+              SrcPort 1
+              DstBlock "Total force and moments"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType Demux
+          Name "Force and moments"
+          Position [430, 148, 439, 196]
+          Outputs "[1 3]"
+        }
+        Block {
+          BlockType Integrator
+          Name "Position"
+          Position [1000, 40, 1110, 82]
+          InitialCondition "drone.x0(1:3)"
+        }
+        Block {
+          BlockType Integrator
+          Name "Velocity"
+          Position [1000, 148, 1110, 190]
+          InitialCondition "drone.x0(4:6)"
+        }
+        Block {
+          BlockType Integrator
+          Name "Euler angles"
+          Position [1000, 256, 1110, 298]
+          InitialCondition "drone.x0(7:9)"
+        }
+        Block {
+          BlockType Integrator
+          Name "Body rates"
+          Position [1000, 364, 1110, 406]
+          InitialCondition "drone.x0(10:12)"
+        }
+        Block {
+          BlockType SubSystem
+          Name "Linear acceleration"
+          Position [630, 148, 775, 196]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Total thrust"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Euler angles"
+              Position [30, 156, 70, 176]
+              Port "2"
+            }
+            Block {
+              BlockType Inport
+              Name "NED velocity"
+              Position [30, 372, 70, 392]
+              Port "3"
+            }
+            Block {
+              BlockType SubSystem
+              Name "Body thrust direction"
+              Position [230, 148, 375, 192]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Euler angles"
+                  Position [30, 156, 70, 176]
+                  Port "1"
+                }
+                Block {
+                  BlockType Demux
+                  Name "Roll pitch yaw"
+                  Position [230, 148, 239, 220]
+                  Outputs "[1 1 1]"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Cos roll"
+                  Position [430, 40, 565, 78]
+                  Operator "cos"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Sin roll"
+                  Position [430, 148, 565, 186]
+                  Operator "sin"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Sin pitch"
+                  Position [430, 256, 565, 294]
+                  Operator "sin"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Cos pitch"
+                  Position [430, 364, 565, 402]
+                  Operator "cos"
+                }
+                Block {
+                  BlockType Product
+                  Name "Forward component"
+                  Position [630, 40, 765, 78]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Gain
+                  Name "Right component"
+                  Position [630, 148, 765, 186]
+                  Gain "-1"
+                }
+                Block {
+                  BlockType Product
+                  Name "Down component"
+                  Position [630, 364, 765, 402]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Mux
+                  Name "Planar projection"
+                  Position [830, 148, 840, 186]
+                  Inputs "2"
+                }
+                Block {
+                  BlockType SubSystem
+                  Name "Rotate to north and east"
+                  Position [1030, 148, 1175, 192]
+                  System {
+                    Location [20, 60, 1200, 700]
+                    Block {
+                      BlockType Inport
+                      Name "Planar components"
+                      Position [30, 156, 70, 176]
+                      Port "1"
+                    }
+                    Block {
+                      BlockType Demux
+                      Name "Components"
+                      Position [230, 148, 239, 196]
+                      Outputs "[1 1]"
+                    }
+                    Block {
+                      BlockType Inport
+                      Name "Yaw"
+                      Position [30, 372, 70, 392]
+                      Port "2"
+                    }
+                    Block {
+                      BlockType Trigonometry
+                      Name "Cosine"
+                      Position [230, 364, 365, 402]
+                      Operator "cos"
+                    }
+                    Block {
+                      BlockType Trigonometry
+                      Name "Sine"
+                      Position [230, 472, 365, 510]
+                      Operator "sin"
+                    }
+                    Block {
+                      BlockType Product
+                      Name "First times cosine"
+                      Position [430, 40, 565, 78]
+                      Inputs "**"
+                    }
+                    Block {
+                      BlockType Product
+                      Name "Second times sine"
+                      Position [430, 148, 565, 186]
+                      Inputs "**"
+                    }
+                    Block {
+                      BlockType Product
+                      Name "First times sine"
+                      Position [430, 256, 565, 294]
+                      Inputs "**"
+                    }
+                    Block {
+                      BlockType Product
+                      Name "Second times cosine"
+                      Position [430, 364, 565, 402]
+                      Inputs "**"
+                    }
+                    Block {
+                      BlockType Sum
+                      Name "Rotated first"
+                      Position [630, 40, 765, 78]
+                      Inputs "+-"
+                    }
+                    Block {
+                      BlockType Sum
+                      Name "Rotated second"
+                      Position [630, 256, 765, 294]
+                      Inputs "++"
+                    }
+                    Block {
+                      BlockType Mux
+                      Name "Join components"
+                      Position [830, 148, 840, 186]
+                      Inputs "2"
+                    }
+                    Block {
+                      BlockType Outport
+                      Name "Rotated vector"
+                      Position [1030, 156, 1070, 176]
+                      Port "1"
+                    }
+                    Line {
+                      SrcBlock "Planar components"
+                      SrcPort 1
+                      DstBlock "Components"
+                      DstPort 1
+                    }
+                    Line {
+                      SrcBlock "Yaw"
+                      SrcPort 1
+                      Branch {
+                        DstBlock "Cosine"
+                        DstPort 1
+                      }
+                      Branch {
+                        DstBlock "Sine"
+                        DstPort 1
+                      }
+                    }
+                    Line {
+                      SrcBlock "Components"
+                      SrcPort 1
+                      Branch {
+                        DstBlock "First times cosine"
+                        DstPort 1
+                      }
+                      Branch {
+                        DstBlock "First times sine"
+                        DstPort 1
+                      }
+                    }
+                    Line {
+                      SrcBlock "Cosine"
+                      SrcPort 1
+                      Branch {
+                        DstBlock "First times cosine"
+                        DstPort 2
+                      }
+                      Branch {
+                        DstBlock "Second times cosine"
+                        DstPort 2
+                      }
+                    }
+                    Line {
+                      SrcBlock "Components"
+                      SrcPort 2
+                      Branch {
+                        DstBlock "Second times sine"
+                        DstPort 1
+                      }
+                      Branch {
+                        DstBlock "Second times cosine"
+                        DstPort 1
+                      }
+                    }
+                    Line {
+                      SrcBlock "Sine"
+                      SrcPort 1
+                      Branch {
+                        DstBlock "Second times sine"
+                        DstPort 2
+                      }
+                      Branch {
+                        DstBlock "First times sine"
+                        DstPort 2
+                      }
+                    }
+                    Line {
+                      SrcBlock "First times cosine"
+                      SrcPort 1
+                      DstBlock "Rotated first"
+                      DstPort 1
+                    }
+                    Line {
+                      SrcBlock "Second times sine"
+                      SrcPort 1
+                      DstBlock "Rotated first"
+                      DstPort 2
+                    }
+                    Line {
+                      SrcBlock "Second times cosine"
+                      SrcPort 1
+                      DstBlock "Rotated second"
+                      DstPort 1
+                    }
+                    Line {
+                      SrcBlock "First times sine"
+                      SrcPort 1
+                      DstBlock "Rotated second"
+                      DstPort 2
+                    }
+                    Line {
+                      SrcBlock "Rotated first"
+                      SrcPort 1
+                      DstBlock "Join components"
+                      DstPort 1
+                    }
+                    Line {
+                      SrcBlock "Rotated second"
+                      SrcPort 1
+                      DstBlock "Join components"
+                      DstPort 2
+                    }
+                    Line {
+                      SrcBlock "Join components"
+                      SrcPort 1
+                      DstBlock "Rotated vector"
+                      DstPort 1
+                    }
+                  }
+                }
+                Block {
+                  BlockType Mux
+                  Name "Direction vector"
+                  Position [1230, 148, 1240, 186]
+                  Inputs "2"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Body down axis in NED"
+                  Position [1430, 156, 1470, 176]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Euler angles"
+                  SrcPort 1
+                  DstBlock "Roll pitch yaw"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Roll pitch yaw"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Cos roll"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Sin roll"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Roll pitch yaw"
+                  SrcPort 2
+                  Branch {
+                    DstBlock "Sin pitch"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Cos pitch"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Cos roll"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Forward component"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Down component"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Sin pitch"
+                  SrcPort 1
+                  DstBlock "Forward component"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Sin roll"
+                  SrcPort 1
+                  DstBlock "Right component"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Cos pitch"
+                  SrcPort 1
+                  DstBlock "Down component"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Forward component"
+                  SrcPort 1
+                  DstBlock "Planar projection"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Right component"
+                  SrcPort 1
+                  DstBlock "Planar projection"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Planar projection"
+                  SrcPort 1
+                  DstBlock "Rotate to north and east"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Roll pitch yaw"
+                  SrcPort 3
+                  DstBlock "Rotate to north and east"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Rotate to north and east"
+                  SrcPort 1
+                  DstBlock "Direction vector"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Down component"
+                  SrcPort 1
+                  DstBlock "Direction vector"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Direction vector"
+                  SrcPort 1
+                  DstBlock "Body down axis in NED"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType Product
+              Name "Thrust along body down"
+              Position [430, 40, 565, 78]
+              Inputs "**"
+            }
+            Block {
+              BlockType Gain
+              Name "Linear drag"
+              Position [430, 364, 565, 402]
+              Gain "drone.linear_drag_N_per_m_s"
+            }
+            Block {
+              BlockType Sum
+              Name "Thrust and drag"
+              Position [630, 148, 765, 186]
+              Inputs "++"
+            }
+            Block {
+              BlockType Gain
+              Name "Force to acceleration"
+              Position [830, 148, 965, 186]
+              Gain "1/drone.mass_kg"
+            }
+            Block {
+              BlockType Constant
+              Name "NED gravity"
+              Position [830, 40, 965, 78]
+              Value "[0;0;drone.gravity_m_s2]"
+            }
+            Block {
+              BlockType Sum
+              Name "Gravity minus thrust and drag"
+              Position [1030, 40, 1165, 78]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Outport
+              Name "NED acceleration"
+              Position [1230, 48, 1270, 68]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Euler angles"
+              SrcPort 1
+              DstBlock "Body thrust direction"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Total thrust"
+              SrcPort 1
+              DstBlock "Thrust along body down"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Body thrust direction"
+              SrcPort 1
+              DstBlock "Thrust along body down"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "NED velocity"
+              SrcPort 1
+              DstBlock "Linear drag"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Thrust along body down"
+              SrcPort 1
+              DstBlock "Thrust and drag"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Linear drag"
+              SrcPort 1
+              DstBlock "Thrust and drag"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Thrust and drag"
+              SrcPort 1
+              DstBlock "Force to acceleration"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "NED gravity"
+              SrcPort 1
+              DstBlock "Gravity minus thrust and drag"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Force to acceleration"
+              SrcPort 1
+              DstBlock "Gravity minus thrust and drag"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Gravity minus thrust and drag"
+              SrcPort 1
+              DstBlock "NED acceleration"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Euler angle kinematics"
+          Position [630, 256, 775, 300]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Euler angles"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Body rates"
+              Position [30, 264, 70, 284]
+              Port "2"
+            }
+            Block {
+              BlockType Demux
+              Name "Roll pitch yaw"
+              Position [230, 40, 239, 112]
+              Outputs "[1 1 1]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Roll pitch yaw unused 3"
+              Position [298, 94, 310, 106]
+            }
+            Block {
+              BlockType Demux
+              Name "Body rate components"
+              Position [230, 256, 239, 328]
+              Outputs "[1 1 1]"
+            }
+            Block {
+              BlockType Trigonometry
+              Name "Sin roll"
+              Position [430, 40, 565, 78]
+              Operator "sin"
+            }
+            Block {
+              BlockType Trigonometry
+              Name "Cos roll"
+              Position [430, 148, 565, 186]
+              Operator "cos"
+            }
+            Block {
+              BlockType Trigonometry
+              Name "Cos pitch"
+              Position [430, 364, 565, 402]
+              Operator "cos"
+            }
+            Block {
+              BlockType Trigonometry
+              Name "Tan pitch"
+              Position [430, 472, 565, 510]
+              Operator "tan"
+            }
+            Block {
+              BlockType Product
+              Name "Pitch sine term"
+              Position [630, 40, 765, 78]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Yaw cosine term"
+              Position [630, 148, 765, 186]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Pitch cosine term"
+              Position [630, 256, 765, 294]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Yaw sine term"
+              Position [630, 364, 765, 402]
+              Inputs "**"
+            }
+            Block {
+              BlockType Sum
+              Name "Rotated yaw component"
+              Position [830, 40, 965, 78]
+              Inputs "++"
+            }
+            Block {
+              BlockType Sum
+              Name "Pitch derivative"
+              Position [830, 256, 965, 294]
+              Inputs "+-"
+            }
+            Block {
+              BlockType Product
+              Name "Rotation coupling"
+              Position [1030, 40, 1165, 78]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Yaw derivative"
+              Position [1030, 364, 1165, 402]
+              Inputs "*/"
+            }
+            Block {
+              BlockType Sum
+              Name "Roll derivative"
+              Position [1230, 40, 1365, 78]
+              Inputs "++"
+            }
+            Block {
+              BlockType Mux
+              Name "Euler rates"
+              Position [1430, 148, 1440, 202]
+              Inputs "3"
+            }
+            Block {
+              BlockType Outport
+              Name "Euler derivatives"
+              Position [1630, 156, 1670, 176]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Euler angles"
+              SrcPort 1
+              DstBlock "Roll pitch yaw"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Roll pitch yaw"
+              SrcPort 3
+              DstBlock "Roll pitch yaw unused 3"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Body rates"
+              SrcPort 1
+              DstBlock "Body rate components"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Roll pitch yaw"
+              SrcPort 1
+              Branch {
+                DstBlock "Sin roll"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Cos roll"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Roll pitch yaw"
+              SrcPort 2
+              Branch {
+                DstBlock "Cos pitch"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Tan pitch"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Body rate components"
+              SrcPort 2
+              Branch {
+                DstBlock "Pitch sine term"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Pitch cosine term"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Sin roll"
+              SrcPort 1
+              Branch {
+                DstBlock "Pitch sine term"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Yaw sine term"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Body rate components"
+              SrcPort 3
+              Branch {
+                DstBlock "Yaw cosine term"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Yaw sine term"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Cos roll"
+              SrcPort 1
+              Branch {
+                DstBlock "Yaw cosine term"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Pitch cosine term"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Pitch sine term"
+              SrcPort 1
+              DstBlock "Rotated yaw component"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Yaw cosine term"
+              SrcPort 1
+              DstBlock "Rotated yaw component"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Pitch cosine term"
+              SrcPort 1
+              DstBlock "Pitch derivative"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Yaw sine term"
+              SrcPort 1
+              DstBlock "Pitch derivative"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Rotated yaw component"
+              SrcPort 1
+              Branch {
+                DstBlock "Rotation coupling"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Yaw derivative"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Tan pitch"
+              SrcPort 1
+              DstBlock "Rotation coupling"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Cos pitch"
+              SrcPort 1
+              DstBlock "Yaw derivative"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Body rate components"
+              SrcPort 1
+              DstBlock "Roll derivative"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Rotation coupling"
+              SrcPort 1
+              DstBlock "Roll derivative"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Roll derivative"
+              SrcPort 1
+              DstBlock "Euler rates"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Pitch derivative"
+              SrcPort 1
+              DstBlock "Euler rates"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Yaw derivative"
+              SrcPort 1
+              DstBlock "Euler rates"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Euler rates"
+              SrcPort 1
+              DstBlock "Euler derivatives"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Angular acceleration"
+          Position [630, 364, 775, 408]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Moments"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Body rates"
+              Position [30, 264, 70, 284]
+              Port "2"
+            }
+            Block {
+              BlockType Demux
+              Name "Roll pitch yaw rates"
+              Position [230, 256, 239, 328]
+              Outputs "[1 1 1]"
+            }
+            Block {
+              BlockType Product
+              Name "Pitch times yaw"
+              Position [430, 148, 565, 186]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Roll times yaw"
+              Position [430, 256, 565, 294]
+              Inputs "**"
+            }
+            Block {
+              BlockType Product
+              Name "Roll times pitch"
+              Position [430, 364, 565, 402]
+              Inputs "**"
+            }
+            Block {
+              BlockType Mux
+              Name "Rate products"
+              Position [630, 256, 640, 310]
+              Inputs "3"
+            }
+            Block {
+              BlockType Gain
+              Name "Gyroscopic moment"
+              Position [830, 256, 965, 294]
+              Gain "drone.gyro_gain"
+              Multiplication "Matrix(K*u)"
+            }
+            Block {
+              BlockType Gain
+              Name "Angular drag"
+              Position [830, 364, 965, 402]
+              Gain "drone.angular_drag_Nm_per_rad_s"
+            }
+            Block {
+              BlockType Sum
+              Name "Net body moment"
+              Position [1030, 148, 1165, 202]
+              Inputs "+--"
+            }
+            Block {
+              BlockType Gain
+              Name "Inverse inertia"
+              Position [1230, 148, 1365, 186]
+              Gain "diag(1./drone.inertia_kg_m2(:))"
+              Multiplication "Matrix(K*u)"
+            }
+            Block {
+              BlockType Outport
+              Name "Angular acceleration"
+              Position [1430, 156, 1470, 176]
+              Port "1"
+            }
+            Line {
+              SrcBlock "Body rates"
+              SrcPort 1
+              Branch {
+                DstBlock "Roll pitch yaw rates"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Angular drag"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Roll pitch yaw rates"
+              SrcPort 2
+              Branch {
+                DstBlock "Pitch times yaw"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Roll times pitch"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Roll pitch yaw rates"
+              SrcPort 3
+              Branch {
+                DstBlock "Pitch times yaw"
+                DstPort 2
+              }
+              Branch {
+                DstBlock "Roll times yaw"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Roll pitch yaw rates"
+              SrcPort 1
+              Branch {
+                DstBlock "Roll times yaw"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Roll times pitch"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Pitch times yaw"
+              SrcPort 1
+              DstBlock "Rate products"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Roll times yaw"
+              SrcPort 1
+              DstBlock "Rate products"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Roll times pitch"
+              SrcPort 1
+              DstBlock "Rate products"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Rate products"
+              SrcPort 1
+              DstBlock "Gyroscopic moment"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Moments"
+              SrcPort 1
+              DstBlock "Net body moment"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Gyroscopic moment"
+              SrcPort 1
+              DstBlock "Net body moment"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Angular drag"
+              SrcPort 1
+              DstBlock "Net body moment"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Net body moment"
+              SrcPort 1
+              DstBlock "Inverse inertia"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Inverse inertia"
+              SrcPort 1
+              DstBlock "Angular acceleration"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType Mux
+          Name "Combine flight state"
+          Position [1230, 148, 1240, 238]
+          Inputs "5"
+        }
+        Block {
+          BlockType ZeroOrderHold
+          Name "Flight computer sample"
+          Position [1430, 148, 1565, 186]
+          SampleTime "drone.step_s"
+        }
+        Block {
+          BlockType Outport
+          Name "Measured state"
+          Position [1630, 156, 1670, 176]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Speed references"
+          SrcPort 1
+          DstBlock "Motor response"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Motor response"
+          SrcPort 2
+          DstBlock "Force and moments"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Force and moments"
+          SrcPort 1
+          DstBlock "Linear acceleration"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Euler angles"
+          SrcPort 1
+          Branch {
+            DstBlock "Linear acceleration"
+            DstPort 2
+          }
+          Branch {
+            DstBlock "Euler angle kinematics"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Combine flight state"
+            DstPort 3
+          }
+        }
+        Line {
+          SrcBlock "Velocity"
+          SrcPort 1
+          Branch {
+            DstBlock "Linear acceleration"
+            DstPort 3
+          }
+          Branch {
+            DstBlock "Position"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Combine flight state"
+            DstPort 2
+          }
+        }
+        Line {
+          SrcBlock "Body rates"
+          SrcPort 1
+          Branch {
+            DstBlock "Euler angle kinematics"
+            DstPort 2
+          }
+          Branch {
+            DstBlock "Angular acceleration"
+            DstPort 2
+          }
+          Branch {
+            DstBlock "Combine flight state"
+            DstPort 4
+          }
+        }
+        Line {
+          SrcBlock "Force and moments"
+          SrcPort 2
+          DstBlock "Angular acceleration"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Linear acceleration"
+          SrcPort 1
+          DstBlock "Velocity"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Euler angle kinematics"
+          SrcPort 1
+          DstBlock "Euler angles"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Angular acceleration"
+          SrcPort 1
+          DstBlock "Body rates"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Position"
+          SrcPort 1
+          DstBlock "Combine flight state"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Motor response"
+          SrcPort 1
+          DstBlock "Combine flight state"
+          DstPort 5
+        }
+        Line {
+          SrcBlock "Combine flight state"
+          SrcPort 1
+          DstBlock "Flight computer sample"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Flight computer sample"
+          SrcPort 1
+          DstBlock "Measured state"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType SubSystem
+      Name "Flight scopes"
+      Position [380, 275, 526, 333]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType SubSystem
+          Name "Flight response"
+          Position [385, 40, 539, 104]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Reference"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Instruments"
+              Position [30, 264, 70, 284]
+              Port "2"
+            }
+            Block {
+              BlockType Demux
+              Name "Reference channels"
+              Position [230, 40, 239, 136]
+              Outputs "[1 2 1 1]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Reference channels unused 2"
+              Position [298, 70, 310, 82]
+            }
+            Block {
+              BlockType Terminator
+              Name "Reference channels unused 4"
+              Position [298, 118, 310, 130]
+            }
+            Block {
+              BlockType Demux
+              Name "Measured channels"
+              Position [230, 256, 239, 376]
+              Outputs "[1 1 2 3 8]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Measured channels unused 5"
+              Position [298, 358, 310, 370]
+            }
+            Block {
+              BlockType Scope
+              Name "Forward speed - m per s"
+              Position [630, 40, 765, 80]
+              NumInputPorts "2"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Scope
+              Name "Height - m"
+              Position [630, 148, 765, 188]
+              NumInputPorts "2"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Scope
+              Name "North and east - m"
+              Position [630, 256, 765, 296]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Scope
+              Name "Roll pitch yaw - deg"
+              Position [630, 364, 765, 404]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Line {
+              SrcBlock "Reference"
+              SrcPort 1
+              DstBlock "Reference channels"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Reference channels"
+              SrcPort 2
+              DstBlock "Reference channels unused 2"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Reference channels"
+              SrcPort 4
+              DstBlock "Reference channels unused 4"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Instruments"
+              SrcPort 1
+              DstBlock "Measured channels"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Measured channels"
+              SrcPort 5
+              DstBlock "Measured channels unused 5"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Reference channels"
+              SrcPort 1
+              Name "Command"
+              DstBlock "Forward speed - m per s"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Measured channels"
+              SrcPort 1
+              Name "Actual"
+              DstBlock "Forward speed - m per s"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Reference channels"
+              SrcPort 3
+              Name "Target height"
+              DstBlock "Height - m"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Measured channels"
+              SrcPort 2
+              Name "Measured height"
+              DstBlock "Height - m"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Measured channels"
+              SrcPort 3
+              DstBlock "North and east - m"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Measured channels"
+              SrcPort 4
+              DstBlock "Roll pitch yaw - deg"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Mixer inputs"
+          Position [385, 162, 539, 212]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Controller request"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Demux
+              Name "Force and moments"
+              Position [230, 40, 239, 88]
+              Outputs "[1 3]"
+            }
+            Block {
+              BlockType Scope
+              Name "Collective thrust - N"
+              Position [430, 40, 565, 80]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Scope
+              Name "Roll pitch yaw moments - Nm"
+              Position [430, 148, 565, 188]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Line {
+              SrcBlock "Controller request"
+              SrcPort 1
+              DstBlock "Force and moments"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Force and moments"
+              SrcPort 1
+              DstBlock "Collective thrust - N"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Force and moments"
+              SrcPort 2
+              DstBlock "Roll pitch yaw moments - Nm"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Motor outputs"
+          Position [385, 282, 539, 346]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "Thrust references"
+              Position [30, 48, 70, 68]
+              Port "1"
+            }
+            Block {
+              BlockType Inport
+              Name "Speed references"
+              Position [30, 156, 70, 176]
+              Port "2"
+            }
+            Block {
+              BlockType Inport
+              Name "Instruments"
+              Position [30, 264, 70, 284]
+              Port "3"
+            }
+            Block {
+              BlockType Demux
+              Name "Four thrust references - N channels"
+              Position [430, 40, 439, 136]
+              Outputs "[1 1 1 1]"
+            }
+            Block {
+              BlockType Scope
+              Name "Four thrust references - N"
+              Position [630, 40, 765, 104]
+              NumInputPorts "4"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Gain
+              Name "Radians per second to rpm"
+              Position [230, 148, 365, 186]
+              Gain "30/pi"
+            }
+            Block {
+              BlockType Demux
+              Name "Four speed references - rpm channels"
+              Position [430, 148, 439, 244]
+              Outputs "[1 1 1 1]"
+            }
+            Block {
+              BlockType Scope
+              Name "Four speed references - rpm"
+              Position [630, 148, 765, 212]
+              NumInputPorts "4"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Demux
+              Name "Motor measurements"
+              Position [230, 256, 239, 328]
+              Outputs "[7 4 4]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Motor measurements unused 1"
+              Position [298, 262, 310, 274]
+            }
+            Block {
+              BlockType Scope
+              Name "Actual rotor speeds - rpm"
+              Position [630, 256, 765, 296]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Block {
+              BlockType Scope
+              Name "Propeller loads - Nm"
+              Position [630, 364, 765, 404]
+              NumInputPorts "1"
+              OpenAtSimulationStart "off"
+            }
+            Line {
+              SrcBlock "Thrust references"
+              SrcPort 1
+              DstBlock "Four thrust references - N channels"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Four thrust references - N channels"
+              SrcPort 1
+              Name "M1 front right N"
+              DstBlock "Four thrust references - N"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Four thrust references - N channels"
+              SrcPort 2
+              Name "M2 back left N"
+              DstBlock "Four thrust references - N"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Four thrust references - N channels"
+              SrcPort 3
+              Name "M3 front left N"
+              DstBlock "Four thrust references - N"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Four thrust references - N channels"
+              SrcPort 4
+              Name "M4 back right N"
+              DstBlock "Four thrust references - N"
+              DstPort 4
+            }
+            Line {
+              SrcBlock "Speed references"
+              SrcPort 1
+              DstBlock "Radians per second to rpm"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Radians per second to rpm"
+              SrcPort 1
+              DstBlock "Four speed references - rpm channels"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Four speed references - rpm channels"
+              SrcPort 1
+              Name "M1 front right rpm"
+              DstBlock "Four speed references - rpm"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Four speed references - rpm channels"
+              SrcPort 2
+              Name "M2 back left rpm"
+              DstBlock "Four speed references - rpm"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Four speed references - rpm channels"
+              SrcPort 3
+              Name "M3 front left rpm"
+              DstBlock "Four speed references - rpm"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Four speed references - rpm channels"
+              SrcPort 4
+              Name "M4 back right rpm"
+              DstBlock "Four speed references - rpm"
+              DstPort 4
+            }
+            Line {
+              SrcBlock "Instruments"
+              SrcPort 1
+              DstBlock "Motor measurements"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Motor measurements"
+              SrcPort 1
+              DstBlock "Motor measurements unused 1"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Motor measurements"
+              SrcPort 2
+              DstBlock "Actual rotor speeds - rpm"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Motor measurements"
+              SrcPort 3
+              DstBlock "Propeller loads - Nm"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType SubSystem
+          Name "Flight measurements"
+          Position [165, 109, 303, 157]
+          System {
+            Location [20, 60, 1200, 700]
+            Block {
+              BlockType Inport
+              Name "State"
+              Position [30, 156, 70, 176]
+              Port "1"
+            }
+            Block {
+              BlockType Demux
+              Name "State components"
+              Position [230, 148, 239, 316]
+              Outputs "[2 1 2 1 3 3 4]"
+            }
+            Block {
+              BlockType Terminator
+              Name "State components unused 4"
+              Position [298, 226, 310, 238]
+            }
+            Block {
+              BlockType Terminator
+              Name "State components unused 6"
+              Position [298, 274, 310, 286]
+            }
+            Block {
+              BlockType Demux
+              Name "Heading channel"
+              Position [430, 40, 439, 88]
+              Outputs "[2 1]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Heading channel unused 1"
+              Position [498, 46, 510, 58]
+            }
+            Block {
+              BlockType SubSystem
+              Name "Velocity in body axes"
+              Position [630, 40, 775, 84]
+              System {
+                Location [20, 60, 1200, 700]
+                Block {
+                  BlockType Inport
+                  Name "Planar components"
+                  Position [30, 156, 70, 176]
+                  Port "1"
+                }
+                Block {
+                  BlockType Demux
+                  Name "Components"
+                  Position [230, 148, 239, 196]
+                  Outputs "[1 1]"
+                }
+                Block {
+                  BlockType Inport
+                  Name "Yaw"
+                  Position [30, 372, 70, 392]
+                  Port "2"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Cosine"
+                  Position [230, 364, 365, 402]
+                  Operator "cos"
+                }
+                Block {
+                  BlockType Trigonometry
+                  Name "Sine"
+                  Position [230, 472, 365, 510]
+                  Operator "sin"
+                }
+                Block {
+                  BlockType Product
+                  Name "First times cosine"
+                  Position [430, 40, 565, 78]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "Second times sine"
+                  Position [430, 148, 565, 186]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "First times sine"
+                  Position [430, 256, 565, 294]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Product
+                  Name "Second times cosine"
+                  Position [430, 364, 565, 402]
+                  Inputs "**"
+                }
+                Block {
+                  BlockType Sum
+                  Name "Rotated first"
+                  Position [630, 40, 765, 78]
+                  Inputs "++"
+                }
+                Block {
+                  BlockType Sum
+                  Name "Rotated second"
+                  Position [630, 256, 765, 294]
+                  Inputs "+-"
+                }
+                Block {
+                  BlockType Mux
+                  Name "Join components"
+                  Position [830, 148, 840, 186]
+                  Inputs "2"
+                }
+                Block {
+                  BlockType Outport
+                  Name "Rotated vector"
+                  Position [1030, 156, 1070, 176]
+                  Port "1"
+                }
+                Line {
+                  SrcBlock "Planar components"
+                  SrcPort 1
+                  DstBlock "Components"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Yaw"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Cosine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Sine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Components"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "First times cosine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "First times sine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Cosine"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "First times cosine"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "Second times cosine"
+                    DstPort 2
+                  }
+                }
+                Line {
+                  SrcBlock "Components"
+                  SrcPort 2
+                  Branch {
+                    DstBlock "Second times sine"
+                    DstPort 1
+                  }
+                  Branch {
+                    DstBlock "Second times cosine"
+                    DstPort 1
+                  }
+                }
+                Line {
+                  SrcBlock "Sine"
+                  SrcPort 1
+                  Branch {
+                    DstBlock "Second times sine"
+                    DstPort 2
+                  }
+                  Branch {
+                    DstBlock "First times sine"
+                    DstPort 2
+                  }
+                }
+                Line {
+                  SrcBlock "First times cosine"
+                  SrcPort 1
+                  DstBlock "Rotated first"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Second times sine"
+                  SrcPort 1
+                  DstBlock "Rotated first"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Second times cosine"
+                  SrcPort 1
+                  DstBlock "Rotated second"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "First times sine"
+                  SrcPort 1
+                  DstBlock "Rotated second"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Rotated first"
+                  SrcPort 1
+                  DstBlock "Join components"
+                  DstPort 1
+                }
+                Line {
+                  SrcBlock "Rotated second"
+                  SrcPort 1
+                  DstBlock "Join components"
+                  DstPort 2
+                }
+                Line {
+                  SrcBlock "Join components"
+                  SrcPort 1
+                  DstBlock "Rotated vector"
+                  DstPort 1
+                }
+              }
+            }
+            Block {
+              BlockType Demux
+              Name "Forward component"
+              Position [830, 40, 839, 88]
+              Outputs "[1 1]"
+            }
+            Block {
+              BlockType Terminator
+              Name "Forward component unused 2"
+              Position [898, 70, 910, 82]
+            }
+            Block {
+              BlockType Gain
+              Name "Height above ground"
+              Position [630, 148, 765, 186]
+              Gain "-1"
+            }
+            Block {
+              BlockType Gain
+              Name "Radians to degrees"
+              Position [630, 256, 765, 294]
+              Gain "180/pi"
+            }
+            Block {
+              BlockType Gain
+              Name "Actual rotor rpm"
+              Position [630, 364, 765, 402]
+              Gain "30/pi"
+            }
+            Block {
+              BlockType Product
+              Name "Rotor speed squared"
+              Position [430, 472, 565, 510]
+              Inputs "**"
+            }
+            Block {
+              BlockType Gain
+              Name "Aerodynamic torque"
+              Position [630, 472, 765, 510]
+              Gain "drone.kQ"
+            }
+            Block {
+              BlockType Mux
+              Name "Instrument channels"
+              Position [1030, 256, 1040, 364]
+              Inputs "6"
+            }
+            Block {
+              BlockType Outport
+              Name "Measurements"
+              Position [1230, 264, 1270, 284]
+              Port "1"
+            }
+            Line {
+              SrcBlock "State"
+              SrcPort 1
+              DstBlock "State components"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 4
+              DstBlock "State components unused 4"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 6
+              DstBlock "State components unused 6"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 5
+              Branch {
+                DstBlock "Heading channel"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Radians to degrees"
+                DstPort 1
+              }
+            }
+            Line {
+              SrcBlock "Heading channel"
+              SrcPort 1
+              DstBlock "Heading channel unused 1"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 3
+              DstBlock "Velocity in body axes"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Heading channel"
+              SrcPort 2
+              DstBlock "Velocity in body axes"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "Velocity in body axes"
+              SrcPort 1
+              DstBlock "Forward component"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Forward component"
+              SrcPort 2
+              DstBlock "Forward component unused 2"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 2
+              DstBlock "Height above ground"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 7
+              Branch {
+                DstBlock "Actual rotor rpm"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Rotor speed squared"
+                DstPort 1
+              }
+              Branch {
+                DstBlock "Rotor speed squared"
+                DstPort 2
+              }
+            }
+            Line {
+              SrcBlock "Rotor speed squared"
+              SrcPort 1
+              DstBlock "Aerodynamic torque"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Forward component"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 1
+            }
+            Line {
+              SrcBlock "Height above ground"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 2
+            }
+            Line {
+              SrcBlock "State components"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 3
+            }
+            Line {
+              SrcBlock "Radians to degrees"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 4
+            }
+            Line {
+              SrcBlock "Actual rotor rpm"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 5
+            }
+            Line {
+              SrcBlock "Aerodynamic torque"
+              SrcPort 1
+              DstBlock "Instrument channels"
+              DstPort 6
+            }
+            Line {
+              SrcBlock "Instrument channels"
+              SrcPort 1
+              DstBlock "Measurements"
+              DstPort 1
+            }
+          }
+        }
+        Block {
+          BlockType From
+          Name "Read flight command"
+          Position [18, 40, 154, 74]
+          GotoTag "flight_command"
+        }
+        Block {
+          BlockType From
+          Name "Read flight state"
+          Position [18, 115, 154, 149]
+          GotoTag "flight_state"
+        }
+        Block {
+          BlockType From
+          Name "Read thrust and moments"
+          Position [18, 170, 154, 204]
+          GotoTag "thrust_and_moments"
+        }
+        Block {
+          BlockType From
+          Name "Read motor thrust"
+          Position [18, 276, 154, 310]
+          GotoTag "motor_thrust"
+        }
+        Block {
+          BlockType From
+          Name "Read motor speed reference"
+          Position [18, 365, 154, 399]
+          GotoTag "motor_speed_reference"
+        }
+        Line {
+          SrcBlock "Read flight command"
+          SrcPort 1
+          DstBlock "Flight response"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read flight state"
+          SrcPort 1
+          DstBlock "Flight measurements"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read thrust and moments"
+          SrcPort 1
+          DstBlock "Mixer inputs"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read motor thrust"
+          SrcPort 1
+          DstBlock "Motor outputs"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read motor speed reference"
+          SrcPort 1
+          DstBlock "Motor outputs"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Flight measurements"
+          SrcPort 1
+          Branch {
+            DstBlock "Flight response"
+            DstPort 2
+          }
+          Branch {
+            DstBlock "Motor outputs"
+            DstPort 3
+          }
+        }
+      }
+    }
+    Block {
+      BlockType Goto
+      Name "Send flight command"
+      Position [100, 18, 244, 52]
+      GotoTag "flight_command"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Send thrust and moments"
+      Position [285, 18, 429, 52]
+      GotoTag "thrust_and_moments"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Send motor thrust"
+      Position [476, 18, 620, 52]
+      GotoTag "motor_thrust"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Send motor speed reference"
+      Position [666, 18, 810, 52]
+      GotoTag "motor_speed_reference"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType Goto
+      Name "Send flight state"
+      Position [905, 18, 1049, 52]
+      GotoTag "flight_state"
+      TagVisibility "global"
+    }
+    Block {
+      BlockType From
+      Name "Read flight state"
+      Position [60, 195, 196, 229]
+      GotoTag "flight_state"
+    }
+    Block {
+      BlockType SubSystem
+      Name "Front right motor replay"
+      Position [695, 265, 850, 330]
+      System {
+        Location [20, 60, 1200, 700]
+        Block {
+          BlockType From
+          Name "Read motor speed reference"
+          Position [22, 50, 158, 84]
+          GotoTag "motor_speed_reference"
+        }
+        Block {
+          BlockType From
+          Name "Read flight state"
+          Position [22, 158, 158, 192]
+          GotoTag "flight_state"
+        }
+        Block {
+          BlockType Gain
+          Name "Motor 1 speed demand"
+          Position [230, 40, 365, 78]
+          Gain "[1 0 0 0]"
+          Multiplication "Matrix(K*u)"
+        }
+        Block {
+          BlockType Gain
+          Name "Speed demand in rpm"
+          Position [430, 40, 565, 78]
+          Gain "30/pi"
+        }
+        Block {
+          BlockType Gain
+          Name "Motor 1 shaft speed"
+          Position [230, 148, 365, 186]
+          Gain "[zeros(1,12) 1 0 0 0]"
+          Multiplication "Matrix(K*u)"
+        }
+        Block {
+          BlockType Product
+          Name "Speed squared"
+          Position [430, 148, 565, 186]
+          Inputs "**"
+        }
+        Block {
+          BlockType Gain
+          Name "Resisting load in Nm"
+          Position [630, 148, 765, 186]
+          Gain "drone.kQ"
+        }
+        Block {
+          BlockType Mux
+          Name "Speed and load"
+          Position [830, 40, 840, 78]
+          Inputs "2"
+        }
+        Block {
+          BlockType ZeroOrderHold
+          Name "Replay samples"
+          Position [1030, 40, 1165, 78]
+          SampleTime "drone.step_s"
+        }
+        Block {
+          BlockType Outport
+          Name "Replay"
+          Position [1230, 48, 1270, 68]
+          Port "1"
+        }
+        Line {
+          SrcBlock "Read motor speed reference"
+          SrcPort 1
+          DstBlock "Motor 1 speed demand"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Motor 1 speed demand"
+          SrcPort 1
+          DstBlock "Speed demand in rpm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Read flight state"
+          SrcPort 1
+          DstBlock "Motor 1 shaft speed"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Motor 1 shaft speed"
+          SrcPort 1
+          Branch {
+            DstBlock "Speed squared"
+            DstPort 1
+          }
+          Branch {
+            DstBlock "Speed squared"
+            DstPort 2
+          }
+        }
+        Line {
+          SrcBlock "Speed squared"
+          SrcPort 1
+          DstBlock "Resisting load in Nm"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Speed demand in rpm"
+          SrcPort 1
+          DstBlock "Speed and load"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Resisting load in Nm"
+          SrcPort 1
+          DstBlock "Speed and load"
+          DstPort 2
+        }
+        Line {
+          SrcBlock "Speed and load"
+          SrcPort 1
+          DstBlock "Replay samples"
+          DstPort 1
+        }
+        Line {
+          SrcBlock "Replay samples"
+          SrcPort 1
+          DstBlock "Replay"
+          DstPort 1
+        }
+      }
+    }
+    Block {
+      BlockType Outport
+      Name "Motor 1 speed and load"
+      Position [940, 285, 980, 305]
+      Port "1"
+    }
+    Line {
+      SrcBlock "Flight command"
+      SrcPort 1
+      Branch {
+        DstBlock "Flight controller"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Send flight command"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Flight controller"
+      SrcPort 1
+      Branch {
+        DstBlock "Motor mixer"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Send thrust and moments"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Motor mixer"
+      SrcPort 1
+      Branch {
+        DstBlock "Thrust to speed"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Send motor thrust"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Thrust to speed"
+      SrcPort 1
+      Branch {
+        DstBlock "Drone dynamics"
+        DstPort 1
+      }
+      Branch {
+        DstBlock "Send motor speed reference"
+        DstPort 1
+      }
+    }
+    Line {
+      SrcBlock "Drone dynamics"
+      SrcPort 1
+      DstBlock "Send flight state"
+      DstPort 1
+    }
+    Line {
+      SrcBlock "Read flight state"
+      SrcPort 1
+      DstBlock "Flight controller"
+      DstPort 2
+    }
+    Line {
+      SrcBlock "Front right motor replay"
+      SrcPort 1
+      DstBlock "Motor 1 speed and load"
+      DstPort 1
+    }
+  }
+}

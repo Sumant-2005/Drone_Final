@@ -10,6 +10,8 @@ Download [the four-file simulation](downloads/Drone_BTP_Four_Files.zip) and extr
 2. Open `EMRAXDrive.slx` and press **Run**. The drive reads the saved flight, including after a MATLAB restart. Open **Drive results** to see its response. Run the flight again after changing flight settings.
 3. Edit `FlightParameters.m` for the aircraft or mission and `MotorParameters.m` for the EMRAX. Both contain only editable settings. Each model prepares its own inputs when you press Run.
 
+The flight model has a top-level Specialized Power Systems `powergui` in Discrete mode at `drone.step_s` (1.25 ms). Its rigid-body integrators use fixed-step ode4 at that same interval. The 15 kHz inverter in EMRAXDrive uses its own electrical step of about 1.67 µs. All ten flight scopes and the three sampled drive-result scopes retain the full finite run and autoscale the axes. If an older Scope shows only the tail, open its gear menu, choose **Logging**, clear **Limit data points to last**, set **Time → Time span** to **Auto**, and rerun. Changing the axis limits alone cannot recover discarded history.
+
 The MAT file is generated simulation data. The four distributed files are sufficient to start. The toolbar models also require the same MATLAB products as the full project below.
 
 ## Run the final simulation

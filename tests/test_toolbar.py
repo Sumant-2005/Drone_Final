@@ -42,12 +42,29 @@ def test_toolbar_bundle():
             setup = tree.findtext(".//P[@Name='PostLoadFcn']")
             init = tree.findtext(".//P[@Name='InitFcn']")
             assert 'MotorParameters.m' in setup and 'load(replayFile' not in setup
-            assert init.startswith(setup) and "fullfile(motorFolder,'Motor1Replay.mat')" in init
+            assert "fullfile(motorFolder,'Motor1Replay.mat')" in init
             assert "load(replayFile,'frontRightMotor')" in init and 'evalin' not in init
             assert "samples(1,:).'-expected" in init and "rpm = samples(2,:).'" in init
             assert "loadNm = samples(3,:).'" in init
             callbacks = ROOT/'model/toolbar_callbacks'
             assert init==(callbacks/'motor_settings.m').read_text()+(callbacks/'motor_replay.m').read_text()
+            flight_load = json.loads(re.search(r'^  PostLoadFcn (.+)$',model,re.M).group(1))
+            for callback,panel in [(flight_load,'DroneFlight/Flight scopes'),(setup,'EMRAXDrive/Drive results')]:
+                assert f"find_system('{panel}','BlockType','Scope')" in callback
+                assert "scopeCfg.DataLoggingLimitDataPoints = false;" in callback
+                assert "scopeCfg.DataLoggingDecimateData = false;" in callback
+                assert "scopeCfg.TimeSpan = 'Auto';" in callback and "scopeCfg.TimeDisplayOffset = '0';" in callback
+            assert model.count('SourceBlock "sps_lib/powergui"')==1
+            assert "set_param('DroneFlight/powergui','SimulationMode','Discrete','SampleTime','drone.step_s')" in flight_load
+            assert 'FixedStep "drone.step_s"' in model and 'Solver "ode4"' in model
+            step = float(re.search(r'drone.step_s = ([^;]+);',flight).group(1))
+            assert round(rows[-1][0]/step)+1 == 41601
+            assert round((5000-1)*step,3)==6.249
+            root=ET.fromstring(drive.read('simulink/systems/system_root.xml'))
+            gui=root.find("Block[@Name='powergui']/InstanceData")
+            assert gui.findtext("P[@Name='SimulationMode']")=='Discrete'
+            assert gui.findtext("P[@Name='SampleTime']")=='(1/6)*10^-05'
+            print(f'Flight scope coverage: {len(rows)} mission rows, 41601 sample hits over 52 s at {step:g} s.')
     print('4 self-contained files; flight output, motor input, mission and drive callbacks checked.')
 
 

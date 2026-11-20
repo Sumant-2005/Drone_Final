@@ -4,7 +4,25 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import json
 from generate import graph, emit_mdl
+def configure_scopes(panel):
+    # R2023a Scope configuration applies to displayed history as well as logging.
+    # Auto spans the complete finite run, including after a mission duration edit.
+    return ' '.join([
+        f"scopePaths = find_system('{panel}','BlockType','Scope');",
+        "for scopeIndex = 1:numel(scopePaths),",
+        "scopeCfg = get_param(scopePaths{scopeIndex},'ScopeConfiguration');",
+        "scopeCfg.DataLoggingLimitDataPoints = false;",
+        "scopeCfg.DataLoggingDecimateData = false;",
+        "scopeCfg.TimeSpan = 'Auto';",
+        "scopeCfg.TimeDisplayOffset = '0';",
+        "scopeCfg.AxesScaling = 'Auto';",
+        "end;",
+    ])
+
+
 g=graph()
+g.add('Reference','powergui',25,250,130,60,
+      SourceBlock='sps_lib/powergui',SourceType='PSB option menu block')
 replay=g.add('SubSystem','Front right motor replay',760,250,185,60)
 # Align the display tags with the output branches along the top-level chain.
 placements = {
@@ -48,8 +66,10 @@ folder = "fileparts(get_param('DroneFlight','FileName'))"
 set_path = ("set_param('DroneFlight/Save motor 1 replay','FileName',"
             f"fullfile({folder},'Motor1Replay.mat'));")
 s = emit_mdl(g, route_top=True).replace('StopTime "9"', 'StopTime "drone.mission(end,1)"')
+powergui = "set_param('DroneFlight/powergui','SimulationMode','Discrete','SampleTime','drone.step_s');"
+flight_load = ' '.join([flight_command, set_path, powergui, configure_scopes('DroneFlight/Flight scopes')])
 s = s.replace('  InitFcn "setup_flight;"',
-              '  PostLoadFcn '+json.dumps(flight_command+' '+set_path)+'\n'
+              '  PostLoadFcn '+json.dumps(flight_load)+'\n'
               +'  InitFcn '+json.dumps(flight_command))
 s = s.replace('  ReturnWorkspaceOutputs on','  SaveOutput off\n  SaveTime off\n  ReturnWorkspaceOutputs off')
 Path('toolbar/DroneFlight.mdl').write_text(s)
@@ -60,7 +80,7 @@ with ZipFile('EMRAXMission.slx') as src, ZipFile('toolbar/EMRAXDrive.slx','w') a
             tree=ET.fromstring(data)
             model = tree.find('Model')
             tree.find(".//P[@Name='PreLoadFcn']").text = ''
-            ET.SubElement(model,'P',Name='PostLoadFcn').text = drive_setup
+            ET.SubElement(model,'P',Name='PostLoadFcn').text = drive_setup + configure_scopes('EMRAXDrive/Drive results')
             tree.find(".//P[@Name='InitFcn']").text = drive_setup + drive_replay
             data=ET.tostring(tree,encoding='utf-8',xml_declaration=True)
         dest.writestr(info,data)

@@ -211,6 +211,8 @@ def emit_builder(g):
 
 def mdl_ports(kind, params, child):
     """Physical ports used by the MDL loader before it resolves line endpoints."""
+    if kind == 'Reference' and params.get('SourceBlock') == 'sps_lib/powergui':
+        return 0, 0
     if child is not None:
         return tuple(sum(b[0] == direction for b in child.blocks)
                      for direction in ('Inport', 'Outport'))

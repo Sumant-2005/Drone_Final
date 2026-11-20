@@ -19,23 +19,35 @@ def test_toolbar_bundle():
         model = bundle.read('Drone_BTP/DroneFlight.mdl').decode()
         flight = bundle.read('Drone_BTP/FlightParameters.m').decode()
         motor = bundle.read('Drone_BTP/MotorParameters.m').decode()
-        assert 'SaveFormat "StructureWithTime"' in model and 'ReturnWorkspaceOutputs off' in model
-        assert 'OutputSaveName "motor1_flight_replay"' in model and 'InitFcn "FlightParameters;"' in model
-        assert "evalin('base','motor1_flight_replay')" in motor
-        assert 'setup_flight' not in model and '.json' not in flight+motor and '.mat' not in flight+motor
-        profile = re.search(r'p\.mission = \[(.*?)\];',flight,re.S).group(1)
+        assert 'BlockType ToFile' in model and 'MatrixName "frontRightMotor"' in model
+        assert 'FileName "Motor1Replay.mat"' in model and 'SaveFormat "Array"' in model
+        assert "fullfile(fileparts(get_param('DroneFlight','FileName')),'Motor1Replay.mat')" in model
+        assert 'motor1_flight_replay' not in model
+        for settings in [flight,motor]:
+            assert all(token not in settings for token in
+                       ('assignin','evalin','assert(','load(','function ', 'timeseries(', 'get_param('))
+        assert 'FlightParameters.m' in model and 'MotorParameters.m' not in model
+        profile = re.search(r'drone\.mission = \[(.*?)\];',flight,re.S).group(1)
         rows = [list(map(float,line.split())) for line in profile.strip().splitlines()]
-        np.testing.assert_array_equal(rows,json.loads((ROOT/'design.json').read_text())['mission'])
+        inputs = json.loads((ROOT/'design.json').read_text())
+        np.testing.assert_array_equal(rows,inputs['mission'])
+        for name,value in json.loads((ROOT/'emrax_design.json').read_text()).items():
+            assert float(re.search(r'emrax\.'+name+r' = ([^;]+);',motor).group(1))==value
         with ZipFile(io.BytesIO(bundle.read('Drone_BTP/EMRAXDrive.slx'))) as drive, ZipFile(ROOT/'EMRAXMission.slx') as original:
             assert drive.testzip() is None and set(drive.namelist()) == set(original.namelist())
             diff=[n for n in drive.namelist() if drive.read(n)!=original.read(n)]
             assert diff==['simulink/blockdiagram.xml']
             tree=ET.fromstring(drive.read(diff[0]))
             assert not tree.findtext(".//P[@Name='PreLoadFcn']")
-            assert tree.findtext(".//P[@Name='PostLoadFcn']") == (
-                "addpath(fileparts(get_param('EMRAXDrive','FileName')),'-begin'); MotorParameters(false);")
-            assert "addpath(fileparts(get_param('DroneFlight','FileName')),'-begin'); FlightParameters;" in model
-            assert tree.findtext(".//P[@Name='InitFcn']")=='MotorParameters;'
+            setup = tree.findtext(".//P[@Name='PostLoadFcn']")
+            init = tree.findtext(".//P[@Name='InitFcn']")
+            assert 'MotorParameters.m' in setup and 'load(replayFile' not in setup
+            assert init.startswith(setup) and "fullfile(motorFolder,'Motor1Replay.mat')" in init
+            assert "load(replayFile,'frontRightMotor')" in init and 'evalin' not in init
+            assert "samples(1,:).'-expected" in init and "rpm = samples(2,:).'" in init
+            assert "loadNm = samples(3,:).'" in init
+            callbacks = ROOT/'model/toolbar_callbacks'
+            assert init==(callbacks/'motor_settings.m').read_text()+(callbacks/'motor_replay.m').read_text()
     print('4 self-contained files; flight output, motor input, mission and drive callbacks checked.')
 
 

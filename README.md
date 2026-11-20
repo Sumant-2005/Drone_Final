@@ -2,6 +2,16 @@
 
 An R2023a Simulink flight model for a 300 kg quad-X drone with a separate EMRAX 228 HV motor replay. One forward-speed command produces a collective thrust and roll, pitch and yaw moment requests. The mixer allocates these to four propellers. Each thrust becomes a rotor-speed reference. A first-order speed response and a six-degree-of-freedom rigid body close the flight loop.
 
+## Four-file Run-button version
+
+Download [the four-file simulation](downloads/Drone_BTP_Four_Files.zip) and extract it into its own folder. Close older copies of the models, then select the extracted folder in MATLAB R2023a.
+
+1. Open `DroneFlight.mdl`, press **Run**, and let the 52 s mission finish. The **Save motor 1 replay** block writes `Motor1Replay.mat` beside the model. Its three rows contain time in seconds, the front-right rotor speed demand in rpm, and the propeller load in N·m.
+2. Open `EMRAXDrive.slx` and press **Run**. The drive reads the saved flight, including after a MATLAB restart. Open **Drive results** to see its response. Run the flight again after changing flight settings.
+3. Edit `FlightParameters.m` for the aircraft or mission and `MotorParameters.m` for the EMRAX. Both contain only editable settings. Each model prepares its own inputs when you press Run.
+
+The MAT file is generated simulation data. The four distributed files are sufficient to start. The toolbar models also require the same MATLAB products as the full project below.
+
 ## Run the final simulation
 
 Extract the entire project. In MATLAB R2023a, select the folder containing `run_final.m` as the Current Folder. The flight needs Simulink. The supplied EMRAX model also uses Simscape Electrical Specialized Power Systems (powergui, PMSM, current sensors and IGBTs).

@@ -216,7 +216,7 @@ def mdl_ports(kind, params, child):
                      for direction in ('Inport', 'Outport'))
     if kind in ('Constant', 'FromWorkspace', 'From', 'Inport'):
         return 0, 1
-    if kind in ('Outport', 'Terminator', 'Goto'):
+    if kind in ('Outport', 'Terminator', 'Goto', 'ToFile'):
         return 1, 0
     if kind == 'Scope':
         return int(params['NumInputPorts']), 0
